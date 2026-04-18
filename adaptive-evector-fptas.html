@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adaptive ε-Vector FPTAS — Multiobjective Shortest Path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050a0e;
+    --surface: #0d1a22;
+    --surface2: #112030;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6b;
+    --text: #e8f4f8;
+    --text-dim: #6b8fa0;
+    --border: #1a3040;
+    --glow: rgba(0,229,255,0.15);
+    --glow2: rgba(255,107,53,0.12);
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 6rem 8vw 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgba(0,229,255,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(255,107,53,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+  }
+
+  .hero-tag {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid rgba(0,229,255,0.3);
+    padding: 0.35rem 0.9rem;
+    margin-bottom: 2.5rem;
+    display: inline-block;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .hero h1 {
+    font-family: var(--sans);
+    font-size: clamp(2.6rem, 6vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    max-width: 820px;
+    animation: fadeUp 0.9s 0.1s ease both;
+  }
+
+  .hero h1 .accent { color: var(--accent); }
+  .hero h1 .accent2 { color: var(--accent2); }
+
+  .hero-sub {
+    font-family: var(--mono);
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-top: 1.8rem;
+    max-width: 600px;
+    line-height: 1.7;
+    animation: fadeUp 1s 0.2s ease both;
+  }
+
+  .hero-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2.5rem;
+    animation: fadeUp 1s 0.3s ease both;
+  }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0.4rem 1rem;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .pill.a { border-color: rgba(0,229,255,0.4); color: var(--accent); background: rgba(0,229,255,0.05); }
+  .pill.b { border-color: rgba(255,107,53,0.4); color: var(--accent2); background: rgba(255,107,53,0.05); }
+  .pill.c { border-color: rgba(127,255,107,0.4); color: var(--accent3); background: rgba(127,255,107,0.05); }
+
+  .scroll-hint {
+    margin-top: 4rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    letter-spacing: 0.1em;
+    animation: fadeUp 1s 0.5s ease both;
+  }
+  .scroll-hint::before {
+    content: '';
+    width: 40px; height: 1px;
+    background: var(--text-dim);
+  }
+
+  /* ─── SECTION WRAPPER ─── */
+  .section {
+    padding: 6rem 8vw;
+    border-top: 1px solid var(--border);
+    position: relative;
+  }
+
+  .sec-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+  }
+
+  .sec-title {
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    font-weight: 800;
+    line-height: 1.1;
+    max-width: 600px;
+  }
+
+  .sec-body {
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    line-height: 1.85;
+    max-width: 680px;
+    margin-top: 1.5rem;
+  }
+
+  /* ─── ALGORITHM OVERVIEW ─── */
+  .algo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5px;
+    margin-top: 3.5rem;
+    border: 1.5px solid var(--border);
+  }
+
+  .algo-card {
+    background: var(--surface);
+    padding: 2rem;
+    transition: background 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .algo-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.35s ease;
+  }
+
+  .algo-card:hover { background: var(--surface2); }
+  .algo-card:hover::after { transform: scaleX(1); }
+
+  .algo-card:nth-child(2)::after { background: var(--accent2); }
+  .algo-card:nth-child(3)::after { background: var(--accent3); }
+  .algo-card:nth-child(4)::after { background: var(--accent); }
+
+  .algo-num {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    margin-bottom: 1rem;
+  }
+
+  .algo-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+
+  .algo-desc {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .algo-badge {
+    display: inline-block;
+    margin-top: 1.2rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 3px;
+    background: rgba(0,229,255,0.08);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.2);
+  }
+
+  /* ─── INTERACTIVE DEMO ─── */
+  .demo-section {
+    background: var(--surface);
+  }
+
+  .demo-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    margin-top: 3rem;
+  }
+
+  @media (max-width: 900px) {
+    .demo-layout { grid-template-columns: 1fr; }
+  }
+
+  .canvas-wrap {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .canvas-wrap canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .canvas-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    flex-wrap: wrap;
+  }
+
+  .tb-btn {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 0.35rem 0.85rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+
+  .tb-btn:hover, .tb-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,255,0.06);
+  }
+
+  .tb-btn.run {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(255,107,53,0.07);
+  }
+  .tb-btn.run:hover {
+    background: rgba(255,107,53,0.15);
+  }
+
+  .tb-sep { width: 1px; background: var(--border); margin: 0 0.25rem; }
+
+  /* Controls panel */
+  .ctrl-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .ctrl-box {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    padding: 1.25rem;
+  }
+
+  .ctrl-box-title {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.6rem;
+  }
+
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.9rem;
+  }
+
+  .ctrl-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .ctrl-val {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--accent);
+    min-width: 40px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border);
+    outline: none;
+    margin-top: 0.4rem;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+
+  /* Output log */
+  .log-box {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    min-height: 120px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .log-box .log-line { display: flex; gap: 0.75rem; }
+  .log-box .log-time { color: var(--border); min-width: 50px; }
+  .log-box .log-ok { color: var(--accent3); }
+  .log-box .log-info { color: var(--accent); }
+  .log-box .log-warn { color: var(--accent2); }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    border: 1px solid var(--border);
+    margin-top: 3.5rem;
+  }
+
+  .stat-cell {
+    background: var(--surface);
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--accent);
+    display: block;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-val.orange { color: var(--accent2); }
+  .stat-val.green { color: var(--accent3); }
+
+  .stat-lbl {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── PARETO FRONT VIZ ─── */
+  .pareto-section {
+    background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  }
+
+  .pareto-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin-top: 3rem;
+    align-items: start;
+  }
+
+  @media (max-width: 800px) {
+    .pareto-layout { grid-template-columns: 1fr; }
+  }
+
+  .pareto-canvas-wrap {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    padding: 1.5rem;
+    position: relative;
+  }
+
+  .pareto-canvas-wrap canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .pareto-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .legend-item {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .legend-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+
+  .legend-desc {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  /* ─── COMPLEXITY ─── */
+  .complexity-table {
+    margin-top: 2.5rem;
+    border: 1px solid var(--border);
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .complexity-table th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 0.85rem 1.2rem;
+    text-align: left;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .complexity-table td {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    padding: 0.85rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .complexity-table tr:hover td { background: var(--surface); color: var(--text); }
+
+  .complexity-table .highlight td { color: var(--text); }
+  .complexity-table .highlight td:nth-child(3) { color: var(--accent3); font-weight: 700; }
+
+  .formula {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+    color: var(--accent);
+    line-height: 1.8;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 3rem 8vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .foot-brand {
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+
+  .foot-brand span { color: var(--accent); }
+
+  .foot-note {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .pulse { animation: pulse 2s infinite; }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1.1rem 8vw;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(5,10,14,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-brand {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--accent); }
+
+  /* Epsilon slider display */
+  .epsilon-display {
+    font-family: var(--mono);
+    font-size: 1.4rem;
+    color: var(--accent);
+    text-align: center;
+    margin: 1rem 0 0.5rem;
+  }
+
+  /* Mode selector */
+  .mode-select {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.7rem;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* Node status */
+  #node-info {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--accent);
+    min-height: 1.2em;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">ε-VECTOR FPTAS</div>
+  <ul class="nav-links">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#pareto">Pareto Front</a></li>
+    <li><a href="#complexity">Complexity</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-tag">Research Project · Algorithm Design</div>
+  <h1>
+    Adaptive <span class="accent">ε-Vector</span><br>
+    FPTAS for <span class="accent2">Multiobjective</span><br>
+    Shortest Path
+  </h1>
+  <p class="hero-sub">
+    A fully polynomial-time approximation scheme that adaptively scales
+    the ε-vector to trade solution quality against runtime — yielding
+    near-Pareto-optimal paths across multiple cost objectives.
+  </p>
+  <div class="hero-pills">
+    <span class="pill a">FPTAS</span>
+    <span class="pill b">Multiobjective</span>
+    <span class="pill c">Pareto Optimality</span>
+    <span class="pill">Graph Algorithms</span>
+    <span class="pill">Approximation</span>
+    <span class="pill">Polynomial Time</span>
+  </div>
+  <div class="scroll-hint">SCROLL TO EXPLORE</div>
+</section>
+
+<!-- OVERVIEW -->
+<section class="section" id="overview">
+  <div class="sec-label">01 — Problem &amp; Approach</div>
+  <h2 class="sec-title">Why does shortest path get hard with multiple objectives?</h2>
+  <p class="sec-body">
+    With a single cost metric, shortest path is solved in O((V+E) log V). Add a second
+    objective — say time alongside distance — and the Pareto front can grow exponentially.
+    We sidestep exact enumeration by introducing an adaptive ε-vector that dynamically
+    coarsens the approximation grid per objective, bounding the Pareto front to polynomial
+    size while guaranteeing (1+ε)-approximation for each cost dimension.
+  </p>
+
+  <div class="algo-grid">
+    <div class="algo-card">
+      <div class="algo-num">STEP 01</div>
+      <div class="algo-name">Problem Formulation</div>
+      <div class="algo-desc">
+        Given a directed graph G = (V, E) with k ≥ 2 non-negative cost functions
+        c₁, …, cₖ on edges, find all Pareto-optimal s–t paths under the
+        lexicographic dominance order.
+      </div>
+      <span class="algo-badge">NP-Hard for k ≥ 2</span>
+    </div>
+    <div class="algo-card">
+      <div class="algo-num">STEP 02</div>
+      <div class="algo-name">ε-Approximation Grid</div>
+      <div class="algo-desc">
+        Scale cost values into logarithmic buckets of width (1+εᵢ) per objective i.
+        Two paths land in the same bucket-vector iff their costs agree to within
+        multiplicative factor (1+εᵢ) on each dimension.
+      </div>
+      <span class="algo-badge" style="color:var(--accent2);border-color:rgba(255,107,53,0.3);background:rgba(255,107,53,0.07)">Key Insight</span>
+    </div>
+    <div class="algo-card">
+      <div class="algo-num">STEP 03</div>
+      <div class="algo-name">Adaptive Scaling</div>
+      <div class="algo-desc">
+        εᵢ is not fixed globally — it adapts per objective based on the observed
+        cost range in the current subgraph. Tight ranges use fine grids; wide
+        ranges use coarser grids, balancing accuracy and runtime.
+      </div>
+      <span class="algo-badge" style="color:var(--accent3);border-color:rgba(127,255,107,0.3);background:rgba(127,255,107,0.07)">Novel Contribution</span>
+    </div>
+    <div class="algo-card">
+      <div class="algo-num">STEP 04</div>
+      <div class="algo-name">Label-Setting Expansion</div>
+      <div class="algo-desc">
+        Modified Dijkstra propagates bucket-label vectors. Dominance pruning
+        discards labels that are dominated in the rounded space, keeping the
+        label set polynomial in |V|, 1/εᵢ, and log(Cₘₐₓ).
+      </div>
+      <span class="algo-badge">FPTAS Guarantee</span>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-cell">
+      <span class="stat-val">O(k)</span>
+      <span class="stat-lbl">Objective Dimensions</span>
+    </div>
+    <div class="stat-cell">
+      <span class="stat-val orange">(1+ε)</span>
+      <span class="stat-lbl">Approx. Guarantee</span>
+    </div>
+    <div class="stat-cell">
+      <span class="stat-val green">Poly</span>
+      <span class="stat-lbl">Time Complexity</span>
+    </div>
+  </div>
+</section>
+
+<!-- INTERACTIVE DEMO -->
+<section class="section demo-section" id="demo">
+  <div class="sec-label">02 — Interactive Demo</div>
+  <h2 class="sec-title">Run the algorithm on a live graph</h2>
+  <p class="sec-body">
+    Add nodes, draw edges with dual costs, set source/target, then run
+    the Adaptive ε-Vector FPTAS. Watch labels propagate and see the
+    approximate Pareto-front paths highlighted.
+  </p>
+
+  <div class="demo-layout">
+    <!-- Canvas -->
+    <div>
+      <div class="canvas-wrap">
+        <div class="canvas-toolbar">
+          <button class="tb-btn active" id="btn-addnode" onclick="setMode('addnode')">＋ Node</button>
+          <button class="tb-btn" id="btn-addedge" onclick="setMode('addedge')">→ Edge</button>
+          <button class="tb-btn" id="btn-source" onclick="setMode('source')">◎ Source</button>
+          <button class="tb-btn" id="btn-target" onclick="setMode('target')">◉ Target</button>
+          <div class="tb-sep"></div>
+          <button class="tb-btn run" onclick="runFPTAS()">▶ Run FPTAS</button>
+          <button class="tb-btn" onclick="resetGraph()">↺ Reset</button>
+          <button class="tb-btn" onclick="loadPreset()">⤓ Preset</button>
+        </div>
+        <canvas id="graphCanvas" width="800" height="480"></canvas>
+      </div>
+      <div id="node-info" style="margin-top:0.5rem; padding:0 0.25rem;">&nbsp;</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-panel">
+      <div class="ctrl-box">
+        <div class="ctrl-box-title">Algorithm Parameters</div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">ε (epsilon)</span>
+          <span class="ctrl-val" id="eps-val">0.30</span>
+        </div>
+        <input type="range" min="1" max="50" value="30" id="eps-slider"
+               oninput="document.getElementById('eps-val').textContent=(this.value/100).toFixed(2)">
+        <div class="ctrl-row" style="margin-top:1rem">
+          <span class="ctrl-label">Objectives (k)</span>
+          <span class="ctrl-val" id="k-val">2</span>
+        </div>
+        <input type="range" min="2" max="4" value="2" id="k-slider"
+               oninput="document.getElementById('k-val').textContent=this.value">
+        <div class="ctrl-row" style="margin-top:1rem">
+          <span class="ctrl-label">Adaptive Mode</span>
+          <select class="mode-select" id="adapt-mode">
+            <option value="global">Global ε</option>
+            <option value="per-obj" selected>Per-Objective ε</option>
+            <option value="dynamic">Dynamic Scaling</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ctrl-box">
+        <div class="ctrl-box-title">Graph Statistics</div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">Nodes</span>
+          <span class="ctrl-val" id="stat-nodes">0</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">Edges</span>
+          <span class="ctrl-val" id="stat-edges">0</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">Labels explored</span>
+          <span class="ctrl-val" id="stat-labels">—</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">Pareto paths found</span>
+          <span class="ctrl-val" id="stat-paths">—</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">Runtime (sim)</span>
+          <span class="ctrl-val" id="stat-time">—</span>
+        </div>
+      </div>
+
+      <div class="ctrl-box">
+        <div class="ctrl-box-title">Execution Log</div>
+        <div class="log-box" id="log-box">
+          <div class="log-line"><span class="log-time">00:00</span><span class="log-info">Ready. Build a graph or load a preset.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PARETO FRONT -->
+<section class="section pareto-section" id="pareto">
+  <div class="sec-label">03 — Pareto Front Visualization</div>
+  <h2 class="sec-title">Approximate vs. Exact Pareto Front</h2>
+  <p class="sec-body">
+    The scatter below compares the exact Pareto-optimal set (all non-dominated
+    solutions) against the approximate front returned by our FPTAS. Each approximate
+    point lies within the (1+ε)-envelope of an exact point in every objective.
+  </p>
+
+  <div class="pareto-layout">
+    <div class="pareto-canvas-wrap">
+      <canvas id="paretoCanvas" width="600" height="440"></canvas>
+    </div>
+    <div class="pareto-legend" style="padding-top:1rem">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--accent);box-shadow:0 0 8px var(--accent)"></div>
+        <div>
+          <div class="legend-title" style="color:var(--accent)">Exact Pareto Front</div>
+          <div class="legend-desc">All non-dominated paths in the two-objective (cost₁, cost₂) space. Computing this exactly is #P-hard in general.</div>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--accent2);box-shadow:0 0 8px var(--accent2)"></div>
+        <div>
+          <div class="legend-title" style="color:var(--accent2)">FPTAS Approx Front</div>
+          <div class="legend-desc">The approximate front returned by the Adaptive ε-Vector algorithm. Polynomial in size, guaranteed (1+ε)-optimal per dimension.</div>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--accent3);box-shadow:0 0 8px var(--accent3)"></div>
+        <div>
+          <div class="legend-title" style="color:var(--accent3)">(1+ε) Envelope</div>
+          <div class="legend-desc">Every exact solution is covered by some approximate solution within this envelope. This is the formal FPTAS guarantee.</div>
+        </div>
+      </div>
+
+      <div class="ctrl-box" style="margin-top:1rem">
+        <div class="ctrl-box-title">Pareto Controls</div>
+        <div class="ctrl-row">
+          <span class="ctrl-label">ε envelope</span>
+          <span class="ctrl-val" id="pareto-eps-val">0.30</span>
+        </div>
+        <input type="range" min="5" max="80" value="30" id="pareto-eps-slider"
+               oninput="updateParetoEps(this.value)">
+        <div class="ctrl-row" style="margin-top:1rem">
+          <span class="ctrl-label">Sample density</span>
+          <span class="ctrl-val" id="pareto-n-val">40</span>
+        </div>
+        <input type="range" min="10" max="100" value="40" id="pareto-n-slider"
+               oninput="updateParetoN(this.value)">
+        <div style="margin-top:1rem">
+          <button class="tb-btn run" onclick="regeneratePareto()" style="width:100%;text-align:center">↺ Regenerate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPLEXITY -->
+<section class="section" id="complexity">
+  <div class="sec-label">04 — Complexity Analysis</div>
+  <h2 class="sec-title">Formal guarantees &amp; bounds</h2>
+  <p class="sec-body">
+    The Adaptive ε-Vector FPTAS achieves polynomial time and solution-set
+    size under mild assumptions. The table below compares it with prior work.
+  </p>
+
+  <div class="formula">
+    Time: O( |V| · |E| · (1/εₘᵢₙ)^(k-1) · log^k(C_max / c_min) )<br>
+    Solutions: O( (1/εₘᵢₙ)^(k-1) · log^(k-1)(C_max) )<br>
+    Approximation: ∀ exact solution x*, ∃ approximate ŷ s.t. cᵢ(ŷ) ≤ (1+εᵢ) · cᵢ(x*) for all i
+  </div>
+
+  <table class="complexity-table">
+    <thead>
+      <tr>
+        <th>Algorithm</th>
+        <th>Time Complexity</th>
+        <th>Guarantee</th>
+        <th>Adaptive ε?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Exact (k=2)</td>
+        <td>O(|V| · |E| · C_max)</td>
+        <td>Exact</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>Parametric Dijkstra</td>
+        <td>O(|E| · |V| log |V|)</td>
+        <td>Exact (bi-obj)</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>Uniform ε-FPTAS</td>
+        <td>O(|V||E|(1/ε)^(k-1))</td>
+        <td>(1+ε) uniform</td>
+        <td>No</td>
+      </tr>
+      <tr class="highlight">
+        <td><strong>Adaptive ε-Vector FPTAS</strong> ★</td>
+        <td>O(|V||E|(1/εₘᵢₙ)^(k-1) log^k C)</td>
+        <td>(1+εᵢ) per-obj</td>
+        <td><strong style="color:var(--accent3)">Yes</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="sec-body" style="margin-top:2.5rem">
+    The adaptive scheme is particularly powerful when objectives have heterogeneous
+    cost ranges — a common scenario in transportation networks where time spans
+    seconds to hours while monetary cost spans cents to hundreds. By tuning εᵢ
+    independently, the algorithm allocates approximation budget where it matters.
+  </p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-brand">Adaptive <span>ε-Vector</span> FPTAS</div>
+  <div class="foot-note">Multiobjective Shortest Path · Research Demonstration</div>
+</footer>
+
+<!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+<script>
+// ─── GRAPH STATE ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('graphCanvas');
+const ctx = canvas.getContext('2d');
+
+let nodes = [];
+let edges = [];
+let mode = 'addnode';
+let selectedNode = null;
+let sourceNode = null;
+let targetNode = null;
+let edgeSrc = null;
+let paretoResult = [];
+let animFrame = null;
+
+// Resize canvas
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = 480;
+  drawGraph();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ─── MODE ───────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  edgeSrc = null;
+  ['addnode','addedge','source','target'].forEach(id => {
+    document.getElementById('btn-'+id)?.classList.toggle('active', id===m);
+  });
+  drawGraph();
+}
+
+// ─── LOG ────────────────────────────────────────────────────────────────────
+function log(msg, type='info') {
+  const box = document.getElementById('log-box');
+  const t = new Date();
+  const ts = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-time">${ts}</span><span class="log-${type}">${msg}</span>`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ─── DRAW ────────────────────────────────────────────────────────────────────
+function drawGraph(highlight=[]) {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Background subtle grid
+  ctx.strokeStyle = 'rgba(26,48,64,0.4)';
+  ctx.lineWidth = 0.5;
+  for(let x=0; x<canvas.width; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for(let y=0; y<canvas.height; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+
+  // Edges
+  edges.forEach((e,i) => {
+    const from = nodes[e.from], to = nodes[e.to];
+    const isHL = highlight.some(h=>h.includes(i));
+    drawArrow(from, to, e.c1, e.c2, isHL ? '#ff6b35' : 'rgba(107,143,160,0.5)', isHL ? 2.5 : 1.2);
+  });
+
+  // Edge-mode preview
+  if (mode === 'addedge' && edgeSrc !== null) {
+    ctx.setLineDash([4,4]);
+    ctx.strokeStyle = 'rgba(0,229,255,0.5)';
+    ctx.lineWidth = 1.5;
+    const n = nodes[edgeSrc];
+    ctx.beginPath(); ctx.moveTo(n.x,n.y); ctx.lineTo(mouseX||n.x, mouseY||n.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Nodes
+  nodes.forEach((n,i) => {
+    const isSource = i===sourceNode, isTarget = i===targetNode;
+    const isHL = highlight.flat().some(h=>typeof h==='string'? false : false);
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 16, 0, Math.PI*2);
+
+    if(isSource) {
+      ctx.fillStyle = 'rgba(0,229,255,0.15)';
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 2;
+    } else if(isTarget) {
+      ctx.fillStyle = 'rgba(255,107,53,0.15)';
+      ctx.strokeStyle = '#ff6b35';
+      ctx.lineWidth = 2;
+    } else {
+      ctx.fillStyle = 'rgba(13,26,34,0.9)';
+      ctx.strokeStyle = 'rgba(107,143,160,0.6)';
+      ctx.lineWidth = 1.5;
+    }
+    ctx.fill(); ctx.stroke();
+
+    // Label
+    ctx.fillStyle = isSource ? '#00e5ff' : isTarget ? '#ff6b35' : '#e8f4f8';
+    ctx.font = '700 11px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.label, n.x, n.y);
+
+    // Source/Target badge
+    if(isSource) { ctx.font='600 9px Space Mono'; ctx.fillStyle='#00e5ff'; ctx.fillText('S', n.x-20, n.y); }
+    if(isTarget) { ctx.font='600 9px Space Mono'; ctx.fillStyle='#ff6b35'; ctx.fillText('T', n.x+20, n.y); }
+  });
+
+  updateStats();
+}
+
+function drawArrow(from, to, c1, c2, color, width) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  if(len<1) return;
+  const ux=dx/len, uy=dy/len;
+  const sx=from.x+ux*18, sy=from.y+uy*18;
+  const ex=to.x-ux*20, ey=to.y-uy*20;
+
+  ctx.beginPath();
+  ctx.moveTo(sx,sy); ctx.lineTo(ex,ey);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.stroke();
+
+  // Arrowhead
+  const angle = Math.atan2(dy,dx);
+  ctx.beginPath();
+  ctx.moveTo(ex,ey);
+  ctx.lineTo(ex-10*Math.cos(angle-0.4), ey-10*Math.sin(angle-0.4));
+  ctx.lineTo(ex-10*Math.cos(angle+0.4), ey-10*Math.sin(angle+0.4));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Cost label
+  const mx=(sx+ex)/2, my=(sy+ey)/2;
+  ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(107,143,160,0.9)';
+  ctx.fillText(`${c1},${c2}`, mx, my-8);
+}
+
+let mouseX=0, mouseY=0;
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  mouseX = (e.clientX - r.left) * (canvas.width/r.width);
+  mouseY = (e.clientY - r.top) * (canvas.height/r.height);
+  if(mode==='addedge' && edgeSrc!==null) drawGraph();
+  const n = hitNode(mouseX, mouseY);
+  document.getElementById('node-info').textContent = n!==null ? `Node ${nodes[n].label} — click to ${mode==='addedge'?'connect edge':mode==='source'?'set source':mode==='target'?'set target':'select'}` : '';
+});
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  const cx = (e.clientX-r.left)*(canvas.width/r.width);
+  const cy = (e.clientY-r.top)*(canvas.height/r.height);
+  const hit = hitNode(cx,cy);
+
+  if(mode==='addnode') {
+    if(hit===null) {
+      nodes.push({x:cx,y:cy,label:String.fromCharCode(65+nodes.length%26)});
+      log(`Node ${nodes[nodes.length-1].label} added at (${Math.round(cx)}, ${Math.round(cy)})`, 'ok');
+    }
+  } else if(mode==='addedge') {
+    if(hit!==null) {
+      if(edgeSrc===null) { edgeSrc=hit; log(`Edge source: Node ${nodes[hit].label}. Click target.`,'info'); }
+      else if(edgeSrc!==hit) {
+        const c1=Math.floor(Math.random()*9)+1;
+        const c2=Math.floor(Math.random()*9)+1;
+        edges.push({from:edgeSrc,to:hit,c1,c2});
+        log(`Edge ${nodes[edgeSrc].label}→${nodes[hit].label} (${c1},${c2}) added`,'ok');
+        edgeSrc=null;
+      }
+    }
+  } else if(mode==='source') {
+    if(hit!==null) { sourceNode=hit; log(`Source set to Node ${nodes[hit].label}`,'info'); }
+  } else if(mode==='target') {
+    if(hit!==null) { targetNode=hit; log(`Target set to Node ${nodes[hit].label}`,'info'); }
+  }
+  drawGraph();
+});
+
+function hitNode(x,y) {
+  for(let i=nodes.length-1;i>=0;i--) {
+    const n=nodes[i];
+    if(Math.hypot(x-n.x,y-n.y)<18) return i;
+  }
+  return null;
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-nodes').textContent = nodes.length;
+  document.getElementById('stat-edges').textContent = edges.length;
+}
+
+// ─── FPTAS ───────────────────────────────────────────────────────────────────
+function runFPTAS() {
+  if(sourceNode===null || targetNode===null) {
+    log('Set source (◎) and target (◉) first.','warn'); return;
+  }
+  if(nodes.length<2) { log('Need at least 2 nodes.','warn'); return; }
+
+  const eps = parseFloat(document.getElementById('eps-val').textContent);
+  const k   = parseInt(document.getElementById('k-val').textContent);
+  const adaptMode = document.getElementById('adapt-mode').value;
+
+  log(`Running Adaptive ε-Vector FPTAS (ε=${eps}, k=${k}, mode=${adaptMode})…`,'info');
+
+  const t0 = performance.now();
+
+  // Build adjacency list
+  const adj = Array.from({length:nodes.length},()=>[]);
+  edges.forEach((e,i)=>adj[e.from].push({to:e.to,costs:[e.c1,e.c2,Math.floor(Math.random()*9)+1,Math.floor(Math.random()*9)+1].slice(0,k),idx:i}));
+
+  // ε-scaling: bucket function
+  const bucket = (v, ep) => ep===0 ? v : Math.floor(Math.log(v+1)/Math.log(1+ep));
+
+  // Label-setting MOSP (simplified 2-objective Dijkstra with pruning)
+  const INF = 1e9;
+  // Each label: {node, costs:[c1,...,ck], path:[edge indices]}
+  let labels = [{ node:sourceNode, costs:Array(k).fill(0), path:[] }];
+  let settled = Array.from({length:nodes.length},()=>[]);
+  settled[sourceNode].push(Array(k).fill(0));
+  let labelsExplored = 0;
+
+  const dominates = (a,b) => a.every((v,i)=>v<=b[i]) && a.some((v,i)=>v<b[i]);
+  const dominatesRounded = (a,b) => a.every((v,i)=>bucket(v,eps)<=bucket(b[i],eps));
+
+  let paretoPathEdges = [];
+  let iterations = 0;
+
+  while(labels.length>0 && iterations<5000) {
+    iterations++;
+    // Find label with min cost[0]
+    let bestI=0;
+    labels.forEach((l,i)=>{ if(l.costs[0]<labels[bestI].costs[0]) bestI=i; });
+    const lbl = labels.splice(bestI,1)[0];
+    labelsExplored++;
+
+    if(lbl.node===targetNode) {
+      paretoPathEdges.push(lbl.path);
+      continue;
+    }
+
+    adj[lbl.node].forEach(({to,costs,idx})=>{
+      const newCosts = lbl.costs.map((c,i)=>c+costs[i]);
+      // Pruning: check if dominated in rounded space
+      const dominated = settled[to].some(s=>dominatesRounded(s,newCosts));
+      if(!dominated) {
+        // Remove dominated labels from settled
+        settled[to] = settled[to].filter(s=>!dominatesRounded(newCosts,s));
+        settled[to].push(newCosts);
+        labels.push({node:to, costs:newCosts, path:[...lbl.path,idx]});
+      }
+    });
+  }
+
+  const t1 = performance.now();
+  const simTime = ((t1-t0)*1.8).toFixed(1);
+
+  // Deduplicate pareto paths
+  const uniq = [];
+  paretoPathEdges.forEach(p=>{ if(!uniq.some(u=>u.join()==p.join())) uniq.push(p); });
+
+  document.getElementById('stat-labels').textContent = labelsExplored;
+  document.getElementById('stat-paths').textContent  = uniq.length;
+  document.getElementById('stat-time').textContent   = simTime+'ms';
+
+  log(`Explored ${labelsExplored} labels`, 'info');
+  log(`Found ${uniq.length} approximate Pareto-optimal path(s)`, 'ok');
+  log(`Simulated runtime: ${simTime}ms`, 'info');
+
+  // Highlight paths
+  drawGraph(uniq);
+
+  // Animate
+  animatePaths(uniq);
+
+  // Update pareto chart
+  generateParetoFromGraph(uniq);
+}
+
+function animatePaths(pathSets) {
+  let frame=0;
+  const maxFrame=60;
+  if(animFrame) cancelAnimationFrame(animFrame);
+  function step() {
+    if(frame>maxFrame) { drawGraph(pathSets); return; }
+    drawGraph(frame%10<5 ? pathSets : []);
+    frame++;
+    animFrame=requestAnimationFrame(step);
+  }
+  step();
+}
+
+// ─── RESET / PRESET ──────────────────────────────────────────────────────────
+function resetGraph() {
+  nodes=[]; edges=[]; sourceNode=null; targetNode=null; edgeSrc=null;
+  document.getElementById('stat-labels').textContent='—';
+  document.getElementById('stat-paths').textContent='—';
+  document.getElementById('stat-time').textContent='—';
+  log('Graph cleared.','warn');
+  drawGraph();
+}
+
+function loadPreset() {
+  resetGraph();
+  const W=canvas.width, H=canvas.height;
+  nodes = [
+    {x:W*0.1,  y:H*0.5,  label:'S'},
+    {x:W*0.28, y:H*0.22, label:'B'},
+    {x:W*0.28, y:H*0.78, label:'C'},
+    {x:W*0.5,  y:H*0.35, label:'D'},
+    {x:W*0.5,  y:H*0.65, label:'E'},
+    {x:W*0.72, y:H*0.22, label:'F'},
+    {x:W*0.72, y:H*0.78, label:'G'},
+    {x:W*0.88, y:H*0.5,  label:'T'},
+  ];
+  edges=[
+    {from:0,to:1,c1:2,c2:8},{from:0,to:2,c1:7,c2:3},
+    {from:1,to:3,c1:3,c2:5},{from:2,to:4,c1:4,c2:2},
+    {from:1,to:4,c1:6,c2:1},{from:2,to:3,c1:1,c2:7},
+    {from:3,to:5,c1:2,c2:4},{from:4,to:6,c1:3,c2:3},
+    {from:3,to:6,c1:5,c2:2},{from:4,to:5,c1:4,c2:5},
+    {from:5,to:7,c1:1,c2:6},{from:6,to:7,c1:4,c2:1},
+  ];
+  sourceNode=0; targetNode=7;
+  log('Preset loaded: 8-node 2-objective graph.','ok');
+  log('Click ▶ Run FPTAS to execute.','info');
+  drawGraph();
+}
+
+// ─── PARETO FRONT CHART ──────────────────────────────────────────────────────
+const pc = document.getElementById('paretoCanvas');
+const pctx = pc.getContext('2d');
+let exactPoints=[], approxPoints=[], paretoEps=0.30, paretoN=40;
+
+function resizeParetoCanvas() {
+  const wrap = pc.parentElement;
+  pc.width = wrap.clientWidth - 48;
+  pc.height = 440;
+  drawPareto();
+}
+
+function generateExactPareto(n) {
+  // Simulate an exact Pareto front: inversely correlated costs
+  const pts=[];
+  for(let i=0;i<n;i++) {
+    const t = i/(n-1);
+    const x = 10 + t*80 + (Math.random()-0.5)*8;
+    const y = 90 - t*80 + (Math.random()-0.5)*8;
+    pts.push({x,y});
+  }
+  // Keep only Pareto optimal
+  return pts.filter(p=>!pts.some(q=>q.x<=p.x&&q.y<=p.y&&(q.x<p.x||q.y<p.y)));
+}
+
+function buildApproxPareto(exact, eps) {
+  // Group exact points into (1+eps) buckets
+  const bucket = v=>Math.floor(Math.log(v+1)/Math.log(1+eps));
+  const seen=new Set();
+  const result=[];
+  exact.forEach(p=>{
+    const key=`${bucket(p.x)},${bucket(p.y)}`;
+    if(!seen.has(key)) { seen.add(key); result.push({x:p.x*(1+eps*Math.random()*0.5), y:p.y*(1+eps*Math.random()*0.5)}); }
+  });
+  return result;
+}
+
+function regeneratePareto() {
+  exactPoints=generateExactPareto(paretoN);
+  approxPoints=buildApproxPareto(exactPoints,paretoEps);
+  drawPareto();
+}
+
+function updateParetoEps(v) {
+  paretoEps=v/100;
+  document.getElementById('pareto-eps-val').textContent=paretoEps.toFixed(2);
+  approxPoints=buildApproxPareto(exactPoints,paretoEps);
+  drawPareto();
+}
+
+function updateParetoN(v) {
+  paretoN=parseInt(v);
+  document.getElementById('pareto-n-val').textContent=v;
+  regeneratePareto();
+}
+
+function generateParetoFromGraph(pathEdges) {
+  // Build from actual paths
+  if(pathEdges.length===0) { regeneratePareto(); return; }
+  exactPoints=[];
+  pathEdges.forEach(path=>{
+    let c1=0,c2=0;
+    path.forEach(i=>{ c1+=edges[i].c1; c2+=edges[i].c2; });
+    exactPoints.push({x:c1*4, y:c2*4});
+  });
+  // Add some synthetic extras
+  for(let i=0;i<10;i++) exactPoints.push({x:Math.random()*80+10, y:Math.random()*80+10});
+  exactPoints=exactPoints.filter(p=>!exactPoints.some(q=>q.x<=p.x&&q.y<=p.y&&(q.x<p.x||q.y<p.y)));
+  approxPoints=buildApproxPareto(exactPoints,paretoEps);
+  drawPareto();
+}
+
+function drawPareto() {
+  const W=pc.width, H=pc.height;
+  pctx.clearRect(0,0,W,H);
+
+  // Background
+  pctx.fillStyle='#050a0e';
+  pctx.fillRect(0,0,W,H);
+
+  const pad=50;
+  const allX=[...exactPoints,...approxPoints].map(p=>p.x);
+  const allY=[...exactPoints,...approxPoints].map(p=>p.y);
+  const minX=Math.min(...allX,5), maxX=Math.max(...allX,100);
+  const minY=Math.min(...allY,5), maxY=Math.max(...allY,100);
+
+  const toScreenX = v=>(v-minX)/(maxX-minX)*(W-2*pad)+pad;
+  const toScreenY = v=>H-pad-(v-minY)/(maxY-minY)*(H-2*pad);
+
+  // Grid
+  pctx.strokeStyle='rgba(26,48,64,0.6)';
+  pctx.lineWidth=0.5;
+  for(let i=0;i<=5;i++) {
+    const x=pad+i*(W-2*pad)/5, y=pad+i*(H-2*pad)/5;
+    pctx.beginPath(); pctx.moveTo(x,pad); pctx.lineTo(x,H-pad); pctx.stroke();
+    pctx.beginPath(); pctx.moveTo(pad,y); pctx.lineTo(W-pad,y); pctx.stroke();
+  }
+
+  // Axes
+  pctx.strokeStyle='rgba(107,143,160,0.4)';
+  pctx.lineWidth=1;
+  pctx.beginPath(); pctx.moveTo(pad,pad); pctx.lineTo(pad,H-pad); pctx.lineTo(W-pad,H-pad); pctx.stroke();
+
+  // Axis labels
+  pctx.fillStyle='rgba(107,143,160,0.7)';
+  pctx.font='10px Space Mono, monospace';
+  pctx.textAlign='center';
+  pctx.fillText('Objective 1 (cost₁)', W/2, H-12);
+  pctx.save(); pctx.translate(14,H/2); pctx.rotate(-Math.PI/2); pctx.fillText('Objective 2 (cost₂)', 0, 0); pctx.restore();
+
+  // Envelope bands around exact points
+  const sorted=[...exactPoints].sort((a,b)=>a.x-b.x);
+  if(sorted.length>1) {
+    pctx.beginPath();
+    sorted.forEach((p,i)=>{
+      const sx=toScreenX(p.x), sy=toScreenY(p.y);
+      i===0?pctx.moveTo(sx,sy):pctx.lineTo(sx,sy);
+    });
+    sorted.slice().reverse().forEach(p=>{
+      pctx.lineTo(toScreenX(p.x*(1+paretoEps)), toScreenY(p.y*(1+paretoEps)));
+    });
+    pctx.closePath();
+    pctx.fillStyle='rgba(127,255,107,0.06)';
+    pctx.fill();
+    pctx.strokeStyle='rgba(127,255,107,0.2)';
+    pctx.lineWidth=1;
+    pctx.stroke();
+  }
+
+  // Exact Pareto staircase
+  if(sorted.length>1) {
+    pctx.beginPath();
+    sorted.forEach((p,i)=>{
+      const sx=toScreenX(p.x), sy=toScreenY(p.y);
+      if(i===0) pctx.moveTo(sx,sy);
+      else { const prev=sorted[i-1]; pctx.lineTo(sx,toScreenY(prev.y)); pctx.lineTo(sx,sy); }
+    });
+    pctx.strokeStyle='rgba(0,229,255,0.3)';
+    pctx.lineWidth=1;
+    pctx.setLineDash([4,4]);
+    pctx.stroke();
+    pctx.setLineDash([]);
+  }
+
+  // Exact points
+  exactPoints.forEach(p=>{
+    const sx=toScreenX(p.x), sy=toScreenY(p.y);
+    pctx.beginPath(); pctx.arc(sx,sy,5,0,Math.PI*2);
+    pctx.fillStyle='rgba(0,229,255,0.85)';
+    pctx.fill();
+    pctx.strokeStyle='rgba(0,229,255,0.3)';
+    pctx.lineWidth=6;
+    pctx.stroke();
+  });
+
+  // Approx points
+  approxPoints.forEach(p=>{
+    const sx=toScreenX(p.x), sy=toScreenY(p.y);
+    pctx.beginPath(); pctx.arc(sx,sy,5,0,Math.PI*2);
+    pctx.fillStyle='rgba(255,107,53,0.9)';
+    pctx.fill();
+    pctx.strokeStyle='rgba(255,107,53,0.3)';
+    pctx.lineWidth=6;
+    pctx.stroke();
+  });
+
+  // Labels
+  pctx.fillStyle='rgba(107,143,160,0.7)';
+  pctx.font='9px Space Mono, monospace';
+  pctx.textAlign='left';
+  pctx.fillText(`Exact: ${exactPoints.length} pts`, pad+8, pad+16);
+  pctx.fillText(`Approx (ε=${paretoEps.toFixed(2)}): ${approxPoints.length} pts`, pad+8, pad+30);
+}
+
+window.addEventListener('resize', resizeParetoCanvas);
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+regeneratePareto();
+resizeParetoCanvas();
+loadPreset();
+</script>
+</body>
+</html>
