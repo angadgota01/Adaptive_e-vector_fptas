@@ -20,8 +20,6 @@
       --text: #e8f4f8;
       --text-dim: #6b8fa0;
       --border: #1a3040;
-      --glow: rgba(0, 229, 255, 0.15);
-      --glow2: rgba(255, 107, 53, 0.12);
       --mono: 'Space Mono', monospace;
       --sans: 'Syne', sans-serif;
     }
@@ -37,12 +35,9 @@
       color: var(--text);
       font-family: var(--sans);
       overflow-x: hidden;
-      cursor: default;
     }
 
-
-
-    /* ─── SECTION WRAPPER ─── */
+    /* ─── SECTION ─── */
     .section {
       padding: 6rem 8vw;
       border-top: 1px solid var(--border);
@@ -58,25 +53,7 @@
       margin-bottom: 1.2rem;
     }
 
-    .sec-title {
-      font-size: clamp(1.8rem, 3.5vw, 3rem);
-      font-weight: 800;
-      line-height: 1.1;
-      max-width: 600px;
-    }
-
-    .sec-body {
-      font-family: var(--mono);
-      font-size: 0.88rem;
-      color: var(--text-dim);
-      line-height: 1.85;
-      max-width: 680px;
-      margin-top: 1.5rem;
-    }
-
-
-
-    /* ─── INTERACTIVE DEMO ─── */
+    /* ─── DEMO LAYOUT ─── */
     .demo-section {
       background: var(--surface);
     }
@@ -97,7 +74,6 @@
     .canvas-wrap {
       border: 1px solid var(--border);
       background: var(--bg);
-      position: relative;
       overflow: hidden;
     }
 
@@ -145,30 +121,26 @@
       background: rgba(255, 107, 53, 0.15);
     }
 
-    .tb-btn#btn-editcost {
+    #btn-editcost {
       color: var(--accent2);
       border-color: rgba(255, 107, 53, 0.35);
     }
 
-    .tb-btn#btn-editcost:hover,
-    .tb-btn#btn-editcost.active {
+    #btn-editcost:hover,
+    #btn-editcost.active {
       background: rgba(255, 107, 53, 0.12);
       border-color: var(--accent2);
     }
 
-    .tb-btn#btn-delete {
+    #btn-delete {
       color: #ff4d4d;
       border-color: rgba(255, 77, 77, 0.35);
     }
 
-    .tb-btn#btn-delete:hover,
-    .tb-btn#btn-delete.active {
+    #btn-delete:hover,
+    #btn-delete.active {
       background: rgba(255, 77, 77, 0.12);
       border-color: #ff4d4d;
-    }
-
-    .route-row:last-child {
-      border-bottom: none !important;
     }
 
     .tb-sep {
@@ -177,7 +149,7 @@
       margin: 0 0.25rem;
     }
 
-    /* Controls panel */
+    /* ─── CONTROLS PANEL ─── */
     .ctrl-panel {
       display: flex;
       flex-direction: column;
@@ -242,7 +214,7 @@
       border: 2px solid var(--bg);
     }
 
-    /* Output log */
+    /* ─── LOG ─── */
     .log-box {
       font-family: var(--mono);
       font-size: 0.72rem;
@@ -253,124 +225,50 @@
       overflow-y: auto;
     }
 
-    .log-box .log-line {
+    .log-line {
       display: flex;
       gap: 0.75rem;
     }
 
-    .log-box .log-time {
+    .log-time {
       color: var(--border);
       min-width: 50px;
     }
 
-    .log-box .log-ok {
+    .log-ok {
       color: var(--accent3);
     }
 
-    .log-box .log-info {
+    .log-info {
       color: var(--accent);
     }
 
-    .log-box .log-warn {
+    .log-warn {
       color: var(--accent2);
     }
 
-    /* Stats row */
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      border: 1px solid var(--border);
-      margin-top: 3.5rem;
-    }
-
-    .stat-cell {
-      background: var(--surface);
-      padding: 1.5rem;
-      text-align: center;
-    }
-
-    .stat-val {
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: var(--accent);
-      display: block;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-    }
-
-    .stat-val.orange {
-      color: var(--accent2);
-    }
-
-    .stat-val.green {
-      color: var(--accent3);
-    }
-
-    .stat-lbl {
-      font-family: var(--mono);
-      font-size: 0.68rem;
-      color: var(--text-dim);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-
-
-
-
-
-
-    /* ─── ANIMATIONS ─── */
-    @keyframes fadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(24px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.4;
-      }
-    }
-
-    .pulse {
-      animation: pulse 2s infinite;
-    }
-
-
-
-    /* Node status */
+    /* ─── NODE INFO ─── */
     #node-info {
       font-family: var(--mono);
       font-size: 0.72rem;
       color: var(--accent);
       min-height: 1.2em;
     }
+
+    /* ─── ROUTES ─── */
+    .route-row:last-child {
+      border-bottom: none !important;
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- INTERACTIVE DEMO -->
   <section class="section demo-section" id="demo" style="border-top: none; padding-top: 3rem;">
-    <!-- Page title integrated into section -->
     <div style="margin-bottom: 2rem;">
       <div class="sec-label">Interactive Demo</div>
       <h1 style="font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 0.6rem;">
-        Adaptive <span class="accent">ε-Vector</span> FPTAS
+        Adaptive <span style="color: var(--accent);">ε-Vector</span> FPTAS
       </h1>
       <p
         style="font-family: var(--mono); font-size: 0.88rem; color: var(--text-dim); max-width: 680px; line-height: 1.85;">
@@ -398,14 +296,13 @@
           </div>
           <canvas id="graphCanvas" width="800" height="480"></canvas>
         </div>
-        <div id="node-info" style="margin-top:0.5rem; padding:0 0.25rem;">&nbsp;</div>
+        <div id="node-info" style="margin-top: 0.5rem; padding: 0 0.25rem;">&nbsp;</div>
 
-        <!-- Solution Routes display box -->
+        <!-- Solution Routes -->
         <div id="routes-box" class="ctrl-box" style="margin-top: 1.5rem; display: none;">
           <div class="ctrl-box-title" style="color: var(--accent2);">Approximate Pareto-Optimal Routes</div>
           <div id="routes-list"
             style="font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; max-height: 250px; overflow-y: auto;">
-            <!-- Dynamically populated -->
           </div>
         </div>
       </div>
@@ -419,16 +316,16 @@
             <span class="ctrl-val" id="eps-val">0.30</span>
           </div>
           <input type="range" min="1" max="50" value="30" id="eps-slider"
-            oninput="document.getElementById('eps-val').textContent=(this.value/100).toFixed(2)">
-          <div class="ctrl-row" style="margin-top:1rem">
+            oninput="document.getElementById('eps-val').textContent = (this.value / 100).toFixed(2)">
+          <div class="ctrl-row" style="margin-top: 1rem;">
             <span class="ctrl-label">Objectives (k)</span>
             <span class="ctrl-val" id="k-val">2</span>
           </div>
           <input type="range" min="2" max="4" value="2" id="k-slider"
-            oninput="document.getElementById('k-val').textContent=this.value; drawGraph();">
-          <div class="ctrl-row" style="margin-top:1.2rem; border-top:1px dashed var(--border); padding-top:0.8rem">
-            <span class="ctrl-label" style="color:var(--accent3)">Computed ε-Vector</span>
-            <span class="ctrl-val" id="eps-vector-val" style="color:var(--accent3); font-weight:700">—</span>
+            oninput="document.getElementById('k-val').textContent = this.value; drawGraph();">
+          <div class="ctrl-row" style="margin-top: 1.2rem; border-top: 1px dashed var(--border); padding-top: 0.8rem;">
+            <span class="ctrl-label" style="color: var(--accent3);">Computed ε-Vector</span>
+            <span class="ctrl-val" id="eps-vector-val" style="color: var(--accent3); font-weight: 700;">—</span>
           </div>
         </div>
 
@@ -459,42 +356,41 @@
         <div class="ctrl-box">
           <div class="ctrl-box-title">Execution Log</div>
           <div class="log-box" id="log-box">
-            <div class="log-line"><span class="log-time">00:00</span><span class="log-info">Ready. Build a graph or load
-                a preset.</span></div>
+            <div class="log-line">
+              <span class="log-time">00:00</span>
+              <span class="log-info">Ready. Build a graph or load a preset.</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-
-  <!-- ═══════════════ JAVASCRIPT ═══════════════ -->
   <script>
-    // ─── GRAPH STATE ───────────────────────────────────────────────────────────
+    // ─── STATE ───────────────────────────────────────────────────────────────────
     const canvas = document.getElementById('graphCanvas');
     const ctx = canvas.getContext('2d');
 
     let nodes = [];
     let edges = [];
     let mode = 'addnode';
-    let selectedNode = null;
     let sourceNode = null;
     let targetNode = null;
     let edgeSrc = null;
-    let paretoResult = [];
     let animFrame = null;
+    let mouseX = 0;
+    let mouseY = 0;
 
-    // Resize canvas
+    // ─── CANVAS RESIZE ───────────────────────────────────────────────────────────
     function resizeCanvas() {
-      const wrap = canvas.parentElement;
-      canvas.width = wrap.clientWidth;
+      canvas.width = canvas.parentElement.clientWidth;
       canvas.height = 480;
       drawGraph();
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // ─── MODE ───────────────────────────────────────────────────────────────────
+    // ─── MODE ────────────────────────────────────────────────────────────────────
     function setMode(m) {
       mode = m;
       edgeSrc = null;
@@ -504,7 +400,7 @@
       drawGraph();
     }
 
-    // ─── LOG ────────────────────────────────────────────────────────────────────
+    // ─── LOG ─────────────────────────────────────────────────────────────────────
     function log(msg, type = 'info') {
       const box = document.getElementById('log-box');
       const t = new Date();
@@ -516,78 +412,71 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    // ─── DRAW ────────────────────────────────────────────────────────────────────
+    // ─── EDGE COSTS ──────────────────────────────────────────────────────────────
     function ensureEdgeCosts(e) {
       if (!e.costs) {
         e.costs = [
           e.c1 !== undefined ? e.c1 : Math.floor(Math.random() * 9) + 1,
           e.c2 !== undefined ? e.c2 : Math.floor(Math.random() * 9) + 1,
           Math.floor(Math.random() * 9) + 1,
-          Math.floor(Math.random() * 9) + 1
+          Math.floor(Math.random() * 9) + 1,
         ];
       }
       return e.costs;
     }
 
+    // ─── DRAW ────────────────────────────────────────────────────────────────────
     function drawGraph(highlight = []) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background subtle grid
+      // Background grid
       ctx.strokeStyle = 'rgba(26,48,64,0.4)';
       ctx.lineWidth = 0.5;
-      for (let x = 0; x < canvas.width; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
-      for (let y = 0; y < canvas.height; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
 
       // Edges
       edges.forEach((e, i) => {
-        const from = nodes[e.from], to = nodes[e.to];
         const isHL = highlight.some(h => h.includes(i));
-        drawArrow(from, to, e, isHL ? '#ff6b35' : 'rgba(107,143,160,0.5)', isHL ? 2.5 : 1.2);
+        drawArrow(nodes[e.from], nodes[e.to], e, isHL ? '#ff6b35' : 'rgba(107,143,160,0.5)', isHL ? 2.5 : 1.2);
       });
 
-      // Edge-mode preview
+      // Edge preview while adding
       if (mode === 'addedge' && edgeSrc !== null) {
+        const n = nodes[edgeSrc];
         ctx.setLineDash([4, 4]);
         ctx.strokeStyle = 'rgba(0,229,255,0.5)';
         ctx.lineWidth = 1.5;
-        const n = nodes[edgeSrc];
-        ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(mouseX || n.x, mouseY || n.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(mouseX, mouseY); ctx.stroke();
         ctx.setLineDash([]);
       }
 
       // Nodes
+      const k = parseInt(document.getElementById('k-val').textContent);
       nodes.forEach((n, i) => {
-        const isSource = i === sourceNode, isTarget = i === targetNode;
-        const isHL = highlight.flat().some(h => typeof h === 'string' ? false : false);
+        const isSource = i === sourceNode;
+        const isTarget = i === targetNode;
 
         ctx.beginPath();
         ctx.arc(n.x, n.y, 16, 0, Math.PI * 2);
-
-        if (isSource) {
-          ctx.fillStyle = 'rgba(0,229,255,0.15)';
-          ctx.strokeStyle = '#00e5ff';
-          ctx.lineWidth = 2;
-        } else if (isTarget) {
-          ctx.fillStyle = 'rgba(255,107,53,0.15)';
-          ctx.strokeStyle = '#ff6b35';
-          ctx.lineWidth = 2;
-        } else {
-          ctx.fillStyle = 'rgba(13,26,34,0.9)';
-          ctx.strokeStyle = 'rgba(107,143,160,0.6)';
-          ctx.lineWidth = 1.5;
-        }
+        ctx.fillStyle = isSource ? 'rgba(0,229,255,0.15)' : isTarget ? 'rgba(255,107,53,0.15)' : 'rgba(13,26,34,0.9)';
+        ctx.strokeStyle = isSource ? '#00e5ff' : isTarget ? '#ff6b35' : 'rgba(107,143,160,0.6)';
+        ctx.lineWidth = (isSource || isTarget) ? 2 : 1.5;
         ctx.fill(); ctx.stroke();
 
-        // Label
         ctx.fillStyle = isSource ? '#00e5ff' : isTarget ? '#ff6b35' : '#e8f4f8';
         ctx.font = '700 11px Space Mono, monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(n.label, n.x, n.y);
 
-        // Source/Target badge
-        if (isSource) { ctx.font = '600 9px Space Mono'; ctx.fillStyle = '#00e5ff'; ctx.fillText('S', n.x - 20, n.y); }
-        if (isTarget) { ctx.font = '600 9px Space Mono'; ctx.fillStyle = '#ff6b35'; ctx.fillText('T', n.x + 20, n.y); }
+        ctx.font = '600 9px Space Mono, monospace';
+        if (isSource) { ctx.fillStyle = '#00e5ff'; ctx.fillText('S', n.x - 20, n.y); }
+        if (isTarget) { ctx.fillStyle = '#ff6b35'; ctx.fillText('T', n.x + 20, n.y); }
       });
 
       updateStats();
@@ -607,7 +496,6 @@
       ctx.lineWidth = width;
       ctx.stroke();
 
-      // Arrowhead
       const angle = Math.atan2(dy, dx);
       ctx.beginPath();
       ctx.moveTo(ex, ey);
@@ -617,22 +505,20 @@
       ctx.fillStyle = color;
       ctx.fill();
 
-      // Cost label
-      const mx = (sx + ex) / 2, my = (sy + ey) / 2;
+      const k = parseInt(document.getElementById('k-val').textContent);
+      const costs = ensureEdgeCosts(edge).slice(0, k);
       ctx.font = '10px Space Mono, monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(107,143,160,0.9)';
-
-      const k = parseInt(document.getElementById('k-val')?.textContent || '2');
-      const costs = ensureEdgeCosts(edge).slice(0, k);
-      ctx.fillText(costs.join(','), mx, my - 8);
+      ctx.fillText(costs.join(','), (sx + ex) / 2, (sy + ey) / 2 - 8);
     }
 
-    let mouseX = 0, mouseY = 0;
+    // ─── MOUSE EVENTS ────────────────────────────────────────────────────────────
     canvas.addEventListener('mousemove', e => {
       const r = canvas.getBoundingClientRect();
       mouseX = (e.clientX - r.left) * (canvas.width / r.width);
       mouseY = (e.clientY - r.top) * (canvas.height / r.height);
+
       if (mode === 'addedge' && edgeSrc !== null) drawGraph();
 
       const infoEl = document.getElementById('node-info');
@@ -640,15 +526,11 @@
       const eIdx = (mode === 'editcost' || mode === 'delete') ? hitEdge(mouseX, mouseY) : null;
 
       if (n !== null) {
-        const modeHint = mode === 'addedge' ? 'connect edge' :
-          mode === 'source' ? 'set as source' :
-            mode === 'target' ? 'set as target' :
-              mode === 'delete' ? 'delete node + edges' :
-                mode === 'editcost' ? 'select a node (click an edge to edit)' : 'select';
-        infoEl.textContent = `Node ${nodes[n].label} — click to ${modeHint}`;
+        const hints = { addedge: 'connect edge', source: 'set as source', target: 'set as target', delete: 'delete node + edges', editcost: 'select a node' };
+        infoEl.textContent = `Node ${nodes[n].label} — click to ${hints[mode] || 'select'}`;
       } else if (eIdx !== null) {
         const edge = edges[eIdx];
-        const k = parseInt(document.getElementById('k-val')?.textContent || '2');
+        const k = parseInt(document.getElementById('k-val').textContent);
         const costs = ensureEdgeCosts(edge).slice(0, k);
         const hint = mode === 'editcost' ? 'click to edit costs' : 'click to delete edge';
         infoEl.textContent = `Edge ${nodes[edge.from].label}→${nodes[edge.to].label} [${costs.join(', ')}] — ${hint}`;
@@ -670,8 +552,10 @@
         }
       } else if (mode === 'addedge') {
         if (hit !== null) {
-          if (edgeSrc === null) { edgeSrc = hit; log(`Edge source: Node ${nodes[hit].label}. Click target.`, 'info'); }
-          else if (edgeSrc !== hit) {
+          if (edgeSrc === null) {
+            edgeSrc = hit;
+            log(`Edge source: Node ${nodes[hit].label}. Click target.`, 'info');
+          } else if (edgeSrc !== hit) {
             const c1 = Math.floor(Math.random() * 9) + 1;
             const c2 = Math.floor(Math.random() * 9) + 1;
             edges.push({ from: edgeSrc, to: hit, c1, c2 });
@@ -690,20 +574,19 @@
           const currentCosts = ensureEdgeCosts(edge);
           const promptStr = prompt(
             `Enter new cost values for edge ${nodes[edge.from].label}→${nodes[edge.to].label} as comma-separated integers:`,
-            currentCosts.join(",")
+            currentCosts.join(',')
           );
-          if (promptStr !== null && promptStr.trim() !== "") {
-            const parts = promptStr.split(",").map(p => parseInt(p.trim()));
-            if (parts.length > 0 && parts.every(val => !isNaN(val) && val >= 0)) {
-              while (parts.length < 4) {
-                parts.push(Math.floor(Math.random() * 9) + 1);
-              }
+          if (promptStr !== null && promptStr.trim() !== '') {
+            const parts = promptStr.split(',').map(p => parseInt(p.trim()));
+            if (parts.length > 0 && parts.every(v => !isNaN(v) && v >= 0)) {
+              while (parts.length < 4) parts.push(Math.floor(Math.random() * 9) + 1);
               edge.costs = parts.slice(0, 4);
               edge.c1 = edge.costs[0];
               edge.c2 = edge.costs[1];
-              log(`Edge ${nodes[edge.from].label}→${nodes[edge.to].label} costs updated to [${edge.costs.slice(0, parseInt(document.getElementById('k-val')?.textContent || '2')).join(",")}]`, 'ok');
+              const k = parseInt(document.getElementById('k-val').textContent);
+              log(`Edge ${nodes[edge.from].label}→${nodes[edge.to].label} costs updated to [${edge.costs.slice(0, k).join(',')}]`, 'ok');
             } else {
-              log("Invalid cost input. Costs must be non-negative integers.", "warn");
+              log('Invalid input. Costs must be non-negative integers.', 'warn');
             }
           }
         }
@@ -719,9 +602,8 @@
           else if (sourceNode > hit) sourceNode--;
           if (targetNode === hit) targetNode = null;
           else if (targetNode > hit) targetNode--;
-
           nodes.splice(hit, 1);
-          log(`Node ${lbl} and its connected edges deleted`, 'warn');
+          log(`Node ${lbl} and its edges deleted`, 'warn');
         } else {
           const eHit = hitEdge(cx, cy);
           if (eHit !== null) {
@@ -734,51 +616,24 @@
       drawGraph();
     });
 
+    // ─── HIT TESTS ───────────────────────────────────────────────────────────────
     function hitNode(x, y) {
       for (let i = nodes.length - 1; i >= 0; i--) {
-        const n = nodes[i];
-        if (Math.hypot(x - n.x, y - n.y) < 18) return i;
+        if (Math.hypot(x - nodes[i].x, y - nodes[i].y) < 18) return i;
       }
       return null;
     }
 
     function hitEdge(x, y) {
-      const threshold = 12;
       for (let i = 0; i < edges.length; i++) {
-        const e = edges[i];
-        const nFrom = nodes[e.from];
-        const nTo = nodes[e.to];
-        if (!nFrom || !nTo) continue;
-
-        const x1 = nFrom.x, y1 = nFrom.y;
-        const x2 = nTo.x, y2 = nTo.y;
-
-        const A = x - x1;
-        const B = y - y1;
-        const C = x2 - x1;
-        const D = y2 - y1;
-
-        const dot = A * C + B * D;
+        const { from, to } = edges[i];
+        const n1 = nodes[from], n2 = nodes[to];
+        if (!n1 || !n2) continue;
+        const C = n2.x - n1.x, D = n2.y - n1.y;
         const lenSq = C * C + D * D;
-        let param = -1;
-        if (lenSq !== 0) param = dot / lenSq;
-
-        let xx, yy;
-        if (param < 0) {
-          xx = x1;
-          yy = y1;
-        } else if (param > 1) {
-          xx = x2;
-          yy = y2;
-        } else {
-          xx = x1 + param * C;
-          yy = y1 + param * D;
-        }
-
-        const dist = Math.hypot(x - xx, y - yy);
-        if (dist < threshold) {
-          return i;
-        }
+        const param = lenSq ? ((x - n1.x) * C + (y - n1.y) * D) / lenSq : -1;
+        const t = Math.max(0, Math.min(1, param));
+        if (Math.hypot(x - (n1.x + t * C), y - (n1.y + t * D)) < 12) return i;
       }
       return null;
     }
@@ -797,56 +652,22 @@
       edges.forEach(e => {
         const costs = ensureEdgeCosts(e);
         for (let i = 0; i < k; i++) {
-          const val = costs[i];
-          if (val > 0) {
-            min_cost[i] = Math.min(min_cost[i], val);
-          }
-          max_cost[i] = Math.max(max_cost[i], val);
+          if (costs[i] > 0) min_cost[i] = Math.min(min_cost[i], costs[i]);
+          max_cost[i] = Math.max(max_cost[i], costs[i]);
         }
       });
 
-      const R = Array(k).fill(0);
-      for (let i = 0; i < k; i++) {
-        if (min_cost[i] === Infinity) {
-          R[i] = 0;
-        } else {
-          R[i] = Math.log(max_cost[i] / min_cost[i]);
-        }
-      }
+      const R = Array(k).fill(0).map((_, i) =>
+        min_cost[i] === Infinity ? 0 : Math.log(max_cost[i] / min_cost[i])
+      );
+      const R_total = R.reduce((a, b) => a + b, 0);
 
-      let R_total = 0;
-      for (let i = 0; i < k; i++) {
-        R_total += R[i];
-      }
+      if (R_total === 0) return Array(k).fill(epsTotal);
 
-      const eps = Array(k).fill(0);
-      if (R_total === 0) {
-        for (let i = 0; i < k; i++) {
-          eps[i] = epsTotal;
-        }
-        return eps;
-      }
+      const w = R.map(r => 1 / (r + 1));
+      const w_total = w.reduce((a, b) => a + b, 0);
 
-      const w = Array(k).fill(0);
-      for (let i = 0; i < k; i++) {
-        w[i] = 1 / (R[i] + 1);
-      }
-
-      let w_total = 0;
-      for (let i = 0; i < k; i++) {
-        w_total += w[i];
-      }
-
-      for (let i = 0; i < k; i++) {
-        eps[i] = epsTotal * (w[i] / w_total);
-      }
-
-      for (let i = 0; i < k; i++) {
-        eps[i] = Math.max(eps[i], 0.01);
-        eps[i] = Math.min(eps[i], 1.0);
-      }
-
-      return eps;
+      return w.map(wi => Math.min(1.0, Math.max(0.01, epsTotal * wi / w_total)));
     }
 
     function runFPTAS() {
@@ -857,59 +678,41 @@
 
       const epsTotal = parseFloat(document.getElementById('eps-val').textContent);
       const k = parseInt(document.getElementById('k-val').textContent);
-
-      // Compute adaptive epsilon vector using the algorithm in the README
       const epsVector = computeAdaptiveEpsilonVector(edges, k, epsTotal);
+      const formattedEps = epsVector.map(v => v.toFixed(3));
 
-      // Display computed epsilon vector in the UI control panel
-      const formattedEps = epsVector.map(val => val.toFixed(3));
       document.getElementById('eps-vector-val').textContent = `[${formattedEps.join(', ')}]`;
-
       log(`Running Adaptive ε-Vector FPTAS (ε_total=${epsTotal}, k=${k})…`, 'info');
-      log(`Computed ε-Vector: [${formattedEps.map((e, idx) => `ε${idx + 1}=${e}`).join(', ')}]`, 'info');
+      log(`Computed ε-Vector: [${formattedEps.map((e, i) => `ε${i + 1}=${e}`).join(', ')}]`, 'info');
 
       const t0 = performance.now();
 
-      // Build adjacency list with stable cached costs
+      // Build adjacency list
       const adj = Array.from({ length: nodes.length }, () => []);
       edges.forEach((e, i) => adj[e.from].push({ to: e.to, costs: ensureEdgeCosts(e).slice(0, k), idx: i }));
 
-      // ε-scaling: bucket function per objective
       const bucket = (v, ep) => ep === 0 ? v : Math.floor(Math.log(v + 1) / Math.log(1 + ep));
+      const dominatesRounded = (a, b) =>
+        a.every((v, i) => bucket(v, epsVector[i]) <= bucket(b[i], epsVector[i]));
 
-      // Label-setting MOSP (simplified Dijkstra with dominance pruning)
-      const INF = 1e9;
-      // Each label: {node, costs:[c1,...,ck], path:[edge indices]}
       let labels = [{ node: sourceNode, costs: Array(k).fill(0), path: [] }];
-      let settled = Array.from({ length: nodes.length }, () => []);
+      const settled = Array.from({ length: nodes.length }, () => []);
       settled[sourceNode].push(Array(k).fill(0));
+
       let labelsExplored = 0;
+      const paretoPathEdges = [];
 
-      const dominates = (a, b) => a.every((v, i) => v <= b[i]) && a.some((v, i) => v < b[i]);
-      const dominatesRounded = (a, b) => a.every((v, i) => bucket(v, epsVector[i]) <= bucket(b[i], epsVector[i]));
-
-      let paretoPathEdges = [];
-      let iterations = 0;
-
-      while (labels.length > 0 && iterations < 5000) {
-        iterations++;
-        // Find label with min cost[0]
+      for (let iter = 0; labels.length > 0 && iter < 5000; iter++) {
         let bestI = 0;
         labels.forEach((l, i) => { if (l.costs[0] < labels[bestI].costs[0]) bestI = i; });
         const lbl = labels.splice(bestI, 1)[0];
         labelsExplored++;
 
-        if (lbl.node === targetNode) {
-          paretoPathEdges.push(lbl.path);
-          continue;
-        }
+        if (lbl.node === targetNode) { paretoPathEdges.push(lbl.path); continue; }
 
         adj[lbl.node].forEach(({ to, costs, idx }) => {
           const newCosts = lbl.costs.map((c, i) => c + costs[i]);
-          // Pruning: check if dominated in rounded space
-          const dominated = settled[to].some(s => dominatesRounded(s, newCosts));
-          if (!dominated) {
-            // Remove dominated labels from settled
+          if (!settled[to].some(s => dominatesRounded(s, newCosts))) {
             settled[to] = settled[to].filter(s => !dominatesRounded(newCosts, s));
             settled[to].push(newCosts);
             labels.push({ node: to, costs: newCosts, path: [...lbl.path, idx] });
@@ -917,12 +720,12 @@
         });
       }
 
-      const t1 = performance.now();
-      const simTime = ((t1 - t0) * 1.8).toFixed(1);
+      const simTime = ((performance.now() - t0) * 1.8).toFixed(1);
 
-      // Deduplicate pareto paths
-      const uniq = [];
-      paretoPathEdges.forEach(p => { if (!uniq.some(u => u.join() == p.join())) uniq.push(p); });
+      // Deduplicate
+      const uniq = paretoPathEdges.filter((p, i, arr) =>
+        arr.findIndex(u => u.join() === p.join()) === i
+      );
 
       document.getElementById('stat-labels').textContent = labelsExplored;
       document.getElementById('stat-paths').textContent = uniq.length;
@@ -932,40 +735,25 @@
       log(`Found ${uniq.length} approximate Pareto-optimal path(s)`, 'ok');
       log(`Simulated runtime: ${simTime}ms`, 'info');
 
-      // Highlight paths
       drawGraph(uniq);
-
-      // Animate
       animatePaths(uniq);
 
-      // ─── Populate solution routes box ───────────────────────────────────────
+      // Populate routes box
       const routesBox = document.getElementById('routes-box');
       const routesList = document.getElementById('routes-list');
       routesList.innerHTML = '';
 
       if (uniq.length === 0) {
         routesList.innerHTML = '<span style="color:var(--text-dim)">No path found from source to target.</span>';
-        routesBox.style.display = 'block';
       } else {
         uniq.forEach((path, ri) => {
-          // Build ordered node sequence from the edge-index path
-          const nodeSeq = [];
-          if (path.length === 0) {
-            nodeSeq.push(sourceNode);
-          } else {
-            path.forEach((edgeIdx, pi) => {
-              if (pi === 0) nodeSeq.push(edges[edgeIdx].from);
-              nodeSeq.push(edges[edgeIdx].to);
-            });
-          }
+          const nodeSeq = path.length === 0
+            ? [sourceNode]
+            : path.map((ei, pi) => pi === 0 ? [edges[ei].from, edges[ei].to] : [edges[ei].to]).flat();
           const nodeLabels = nodeSeq.map(ni => nodes[ni]?.label ?? '?').join(' → ');
 
-          // Sum costs along the path for each objective
           const totalCosts = Array(k).fill(0);
-          path.forEach(edgeIdx => {
-            const c = ensureEdgeCosts(edges[edgeIdx]);
-            for (let i = 0; i < k; i++) totalCosts[i] += c[i];
-          });
+          path.forEach(ei => ensureEdgeCosts(edges[ei]).slice(0, k).forEach((c, i) => { totalCosts[i] += c; }));
           const costsStr = totalCosts.map((v, i) => `c${i + 1}=${v}`).join('  ');
 
           const row = document.createElement('div');
@@ -976,16 +764,15 @@
             <span style="color:var(--text-dim); white-space:nowrap">${costsStr}</span>`;
           routesList.appendChild(row);
         });
-        routesBox.style.display = 'block';
       }
+      routesBox.style.display = 'block';
     }
 
     function animatePaths(pathSets) {
-      let frame = 0;
-      const maxFrame = 60;
       if (animFrame) cancelAnimationFrame(animFrame);
+      let frame = 0;
       function step() {
-        if (frame > maxFrame) { drawGraph(pathSets); return; }
+        if (frame > 60) { drawGraph(pathSets); return; }
         drawGraph(frame % 10 < 5 ? pathSets : []);
         frame++;
         animFrame = requestAnimationFrame(step);
@@ -996,16 +783,12 @@
     // ─── RESET / PRESET ──────────────────────────────────────────────────────────
     function resetGraph() {
       nodes = []; edges = []; sourceNode = null; targetNode = null; edgeSrc = null;
-      document.getElementById('stat-labels').textContent = '—';
-      document.getElementById('stat-paths').textContent = '—';
-      document.getElementById('stat-time').textContent = '—';
-      document.getElementById('eps-vector-val').textContent = '—';
-      // Hide and clear routes box
+      ['stat-labels', 'stat-paths', 'stat-time', 'eps-vector-val'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+      });
       const routesBox = document.getElementById('routes-box');
-      if (routesBox) {
-        routesBox.style.display = 'none';
-        document.getElementById('routes-list').innerHTML = '';
-      }
+      routesBox.style.display = 'none';
+      document.getElementById('routes-list').innerHTML = '';
       log('Graph cleared.', 'warn');
       drawGraph();
     }
@@ -1014,14 +797,14 @@
       resetGraph();
       const W = canvas.width, H = canvas.height;
       nodes = [
-        { x: W * 0.1, y: H * 0.5, label: 'S' },
+        { x: W * 0.10, y: H * 0.50, label: 'S' },
         { x: W * 0.28, y: H * 0.22, label: 'B' },
         { x: W * 0.28, y: H * 0.78, label: 'C' },
-        { x: W * 0.5, y: H * 0.35, label: 'D' },
-        { x: W * 0.5, y: H * 0.65, label: 'E' },
+        { x: W * 0.50, y: H * 0.35, label: 'D' },
+        { x: W * 0.50, y: H * 0.65, label: 'E' },
         { x: W * 0.72, y: H * 0.22, label: 'F' },
         { x: W * 0.72, y: H * 0.78, label: 'G' },
-        { x: W * 0.88, y: H * 0.5, label: 'T' },
+        { x: W * 0.88, y: H * 0.50, label: 'T' },
       ];
       edges = [
         { from: 0, to: 1, c1: 2, c2: 8 }, { from: 0, to: 2, c1: 7, c2: 3 },
@@ -1036,7 +819,6 @@
       log('Click ▶ Run FPTAS to execute.', 'info');
       drawGraph();
     }
-
 
     loadPreset();
   </script>
