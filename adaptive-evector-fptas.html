@@ -426,7 +426,7 @@
     }
 
     // ─── DRAW ────────────────────────────────────────────────────────────────────
-    function drawGraph(highlight = []) {
+    function drawGraph(highlight = [], bestPath = null) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Background grid
@@ -441,8 +441,11 @@
 
       // Edges
       edges.forEach((e, i) => {
+        const isBest = bestPath && bestPath.includes(i);
         const isHL = highlight.some(h => h.includes(i));
-        drawArrow(nodes[e.from], nodes[e.to], e, isHL ? '#ff6b35' : 'rgba(107,143,160,0.5)', isHL ? 2.5 : 1.2);
+        drawArrow(nodes[e.from], nodes[e.to], e,
+          isBest ? '#7fff6b' : (isHL ? '#ff6b35' : 'rgba(107,143,160,0.5)'),
+          isBest ? 4 : (isHL ? 2.5 : 1.2));
       });
 
       // Edge preview while adding
@@ -670,6 +673,40 @@
       return w.map(wi => Math.min(1.0, Math.max(0.01, epsTotal * wi / w_total)));
     }
 
+
+    function selectBestBalancedSolution(paretoSolutions, k) {
+      if (paretoSolutions.length === 0) return { ranked: [], bestIndex: -1 };
+      const ideal = Array(k).fill(Infinity);
+      const nadir = Array(k).fill(-Infinity);
+      paretoSolutions.forEach(sol => {
+        sol.costs.forEach((c, i) => { ideal[i] = Math.min(ideal[i], c); nadir[i] = Math.max(nadir[i], c); });
+      });
+      paretoSolutions.forEach(sol => {
+        sol.D = sol.costs.map((c, i) => (nadir[i] - ideal[i] === 0 ? 0 : (c - ideal[i]) / (nadir[i] - ideal[i])));
+        sol.maxDev = Math.max(...sol.D);
+        sol.avgDev = sol.D.reduce((a, b) => a + b, 0) / k;
+        sol.gainScore = 0;
+      });
+      paretoSolutions.forEach((a, ia) => {
+        paretoSolutions.forEach((b, ib) => {
+          if (ia === ib) return;
+          let totalGain = 0, totalLoss = 0;
+          for (let i = 0; i < k; i++) {
+            const delta = b.D[i] - a.D[i];
+            if (delta > 0) totalGain += delta; else totalLoss += Math.abs(delta);
+          }
+          a.gainScore += totalLoss === 0 ? totalGain : totalGain / totalLoss;
+        });
+      });
+      const maxGain = Math.max(...paretoSolutions.map(s => s.gainScore), 0);
+      paretoSolutions.forEach(sol => {
+        const normGain = maxGain > 0 ? sol.gainScore / maxGain : 0;
+        sol.score = 0.5 * sol.maxDev + 0.3 * sol.avgDev - 0.2 * normGain;
+      });
+      const ranked = [...paretoSolutions].sort((a, b) => a.score - b.score);
+      return { ranked, bestIndex: paretoSolutions.indexOf(ranked[0]) };
+    }
+
     function runFPTAS() {
       if (sourceNode === null || targetNode === null) {
         log('Set source (◎) and target (◉) first.', 'warn'); return;
@@ -727,6 +764,18 @@
         arr.findIndex(u => u.join() === p.join()) === i
       );
 
+      const paretoSolutions = uniq.map(path => {
+        const totalCosts = Array(k).fill(0);
+        path.forEach(ei => {
+          ensureEdgeCosts(edges[ei]).slice(0, k).forEach((c, i) => totalCosts[i] += c);
+        });
+        return { path, costs: totalCosts };
+      });
+
+      const ranking = selectBestBalancedSolution(paretoSolutions, k);
+      const bestPath = ranking.ranked.length ? ranking.ranked[0].path : null;
+
+
       document.getElementById('stat-labels').textContent = labelsExplored;
       document.getElementById('stat-paths').textContent = uniq.length;
       document.getElementById('stat-time').textContent = simTime + 'ms';
@@ -735,18 +784,20 @@
       log(`Found ${uniq.length} approximate Pareto-optimal path(s)`, 'ok');
       log(`Simulated runtime: ${simTime}ms`, 'info');
 
-      drawGraph(uniq);
-      animatePaths(uniq);
+      drawGraph(uniq, bestPath);
+      animatePaths(uniq, bestPath);
 
       // Populate routes box
       const routesBox = document.getElementById('routes-box');
       const routesList = document.getElementById('routes-list');
       routesList.innerHTML = '';
 
-      if (uniq.length === 0) {
+      if (ranking.ranked.length === 0) {
         routesList.innerHTML = '<span style="color:var(--text-dim)">No path found from source to target.</span>';
       } else {
-        uniq.forEach((path, ri) => {
+        ranking.ranked.forEach((sol, ri) => {
+          const path = sol.path;
+          const isBest = ri === 0;
           const nodeSeq = path.length === 0
             ? [sourceNode]
             : path.map((ei, pi) => pi === 0 ? [edges[ei].from, edges[ei].to] : [edges[ei].to]).flat();
@@ -757,23 +808,24 @@
           const costsStr = totalCosts.map((v, i) => `c${i + 1}=${v}`).join('  ');
 
           const row = document.createElement('div');
-          row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border);';
+          row.style.cssText = `display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border); background:${isBest ? 'rgba(127,255,107,0.12)' : 'transparent'};`;
           row.innerHTML = `
-            <span style="color:var(--accent)">#${ri + 1}</span>
+            <span style="color:${isBest ? 'var(--accent3)' : 'var(--accent)'}">#${ri + 1}${isBest ? ' ★ BEST' : ''}</span>
             <span style="flex:1; margin:0 1rem; color:var(--text)">${nodeLabels}</span>
-            <span style="color:var(--text-dim); white-space:nowrap">${costsStr}</span>`;
+            <span style="color:var(--text-dim); white-space:nowrap">${costsStr}</span>
+            <span style="color:var(--accent3); margin-left:1rem;">Score=${sol.score.toFixed(4)}</span>`;
           routesList.appendChild(row);
         });
       }
       routesBox.style.display = 'block';
     }
 
-    function animatePaths(pathSets) {
+    function animatePaths(pathSets, bestPath = null) {
       if (animFrame) cancelAnimationFrame(animFrame);
       let frame = 0;
       function step() {
-        if (frame > 60) { drawGraph(pathSets); return; }
-        drawGraph(frame % 10 < 5 ? pathSets : []);
+        if (frame > 60) { drawGraph(pathSets, bestPath); return; }
+        drawGraph(frame % 10 < 5 ? pathSets : [], bestPath);
         frame++;
         animFrame = requestAnimationFrame(step);
       }
