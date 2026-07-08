@@ -9,6 +9,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap"
     rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg: #050a0e;
@@ -345,6 +346,32 @@
           <div class="ctrl-box-title" style="color: var(--accent2);">Approximate Pareto-Optimal Routes</div>
           <div id="routes-list"
             style="font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; max-height: 250px; overflow-y: auto;">
+          </div>
+        </div>
+
+        <!-- Benchmark Section -->
+        <div id="benchmark-box" class="ctrl-box" style="margin-top: 1.5rem; display: none;">
+          <div class="ctrl-box-title" style="color: var(--accent3);">Benchmark &amp; Validation</div>
+          <div id="benchmark-intro"
+            style="font-family: var(--sans); font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.8rem; line-height: 1.5;">
+            Compare Martins' MDA, NAMOA*, Adaptive ε-Vector FPTAS, Fixed ε-Grid FPTAS, and Weighted-Sum Scalarization on
+            the current graph.
+          </div>
+          <div id="benchmark-actions">
+            <button class="tb-btn" id="btn-run-benchmark" onclick="runBenchmark()"
+              style="width: 100%; padding: 0.5rem; color: var(--accent3); border-color: rgba(127, 255, 107, 0.35); background: rgba(127, 255, 107, 0.05); font-weight: 700; cursor: pointer;">
+              Compare Algorithms
+            </button>
+          </div>
+          <div id="benchmark-download-opts"
+            style="display: none; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.8rem; border-top: 1px dashed var(--border); padding-top: 0.8rem;">
+            <span style="font-family: var(--mono); font-size: 0.68rem; color: var(--text-dim);">Download:</span>
+            <button class="tb-btn" onclick="downloadBenchmark('json')"
+              style="flex: 1; padding: 0.35rem 0; border-color: var(--accent); color: var(--accent); background: rgba(0, 229, 255, 0.04); font-size: 0.68rem; cursor: pointer;">JSON</button>
+            <button class="tb-btn" onclick="downloadBenchmark('txt')"
+              style="flex: 1; padding: 0.35rem 0; border-color: var(--accent2); color: var(--accent2); background: rgba(255, 107, 53, 0.04); font-size: 0.68rem; cursor: pointer;">TXT</button>
+            <button class="tb-btn" onclick="downloadBenchmark('pdf')"
+              style="flex: 1; padding: 0.35rem 0; border-color: var(--accent3); color: var(--accent3); background: rgba(127, 255, 107, 0.04); font-size: 0.68rem; cursor: pointer;">PDF</button>
           </div>
         </div>
       </div>
@@ -854,6 +881,9 @@
 
       document.getElementById('routes-box').style.display = 'none';
       document.getElementById('routes-list').innerHTML = '';
+      document.getElementById('benchmark-box').style.display = 'none';
+      lastBenchmarkJSON = null;
+      lastBenchmarkTXT = null;
       ['stat-labels', 'stat-paths', 'stat-time', 'eps-vector-val'].forEach(id => {
         document.getElementById(id).textContent = '—';
       });
@@ -1032,6 +1062,17 @@
         });
       }
       routesBox.style.display = 'block';
+      if (ranking.ranked.length > 0) {
+        document.getElementById('benchmark-box').style.display = 'block';
+        document.getElementById('btn-run-benchmark').textContent = "Compare Algorithms";
+        document.getElementById('btn-run-benchmark').style.borderColor = "rgba(127, 255, 107, 0.35)";
+        document.getElementById('btn-run-benchmark').style.color = "var(--accent3)";
+        document.getElementById('benchmark-download-opts').style.display = 'none';
+        lastBenchmarkJSON = null;
+        lastBenchmarkTXT = null;
+      } else {
+        document.getElementById('benchmark-box').style.display = 'none';
+      }
     }
 
     // ─── RESET / PRESETS ─────────────────────────────────────────────────────────
@@ -1043,6 +1084,9 @@
       const routesBox = document.getElementById('routes-box');
       routesBox.style.display = 'none';
       document.getElementById('routes-list').innerHTML = '';
+      document.getElementById('benchmark-box').style.display = 'none';
+      lastBenchmarkJSON = null;
+      lastBenchmarkTXT = null;
       log('Graph cleared.', 'warn');
       drawGraph();
     }
@@ -1146,6 +1190,872 @@
       sourceNode = layers[0][0];
       targetNode = layers[layers.length - 1][0];
       log(`Preset 3 loaded: ${nodes.length}-node layered DAG (${edges.length} edges), randomly generated per load.`, 'ok');
+    }
+
+    // ─── BENCHMARKING ENGINE ──────────────────────────────────────────────────────
+    let lastBenchmarkJSON = null;
+    let lastBenchmarkTXT = null;
+
+    // Exact Algorithm 1: Multiobjective Dijkstra (Martins, 1984)
+    function runMartinsExact(nodes, edges, sourceNode, targetNode, k) {
+      const t0 = performance.now();
+
+      const adj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach((e, idx) => {
+        adj[e.from].push({ to: e.to, costs: e.costs.slice(0, k), idx });
+      });
+
+      let labelsGenerated = 0;
+      let labelsPruned = 0;
+      let maxQueueSize = 0;
+      let settledLabelsCount = 0;
+
+      let queue = [{ node: sourceNode, costs: Array(k).fill(0), path: [] }];
+      labelsGenerated++;
+
+      const nondominated = Array.from({ length: nodes.length }, () => []);
+      const dominatesExact = (a, b) => a.every((v, i) => v <= b[i]);
+      const paretoSolutions = [];
+
+      while (queue.length > 0) {
+        if (queue.length > maxQueueSize) {
+          maxQueueSize = queue.length;
+        }
+
+        queue.sort((a, b) => {
+          for (let i = 0; i < k; i++) {
+            if (a.costs[i] !== b.costs[i]) return a.costs[i] - b.costs[i];
+          }
+          return 0;
+        });
+
+        const lbl = queue.shift();
+
+        const isDominated = nondominated[lbl.node].some(c => dominatesExact(c, lbl.costs));
+        if (isDominated) {
+          labelsPruned++;
+          continue;
+        }
+
+        nondominated[lbl.node] = nondominated[lbl.node].filter(c => !dominatesExact(lbl.costs, c));
+        nondominated[lbl.node].push(lbl.costs);
+        settledLabelsCount++;
+
+        if (lbl.node === targetNode) {
+          const isDomTarget = paretoSolutions.some(sol => dominatesExact(sol.costs, lbl.costs));
+          if (!isDomTarget) {
+            for (let i = paretoSolutions.length - 1; i >= 0; i--) {
+              if (dominatesExact(lbl.costs, paretoSolutions[i].costs)) {
+                paretoSolutions.splice(i, 1);
+              }
+            }
+            paretoSolutions.push({ path: lbl.path, costs: lbl.costs });
+          }
+          continue;
+        }
+
+        adj[lbl.node].forEach(({ to, costs, idx }) => {
+          const newCosts = lbl.costs.map((c, i) => c + costs[i]);
+
+          const isDomTarget = paretoSolutions.some(sol => dominatesExact(sol.costs, newCosts));
+          if (isDomTarget) {
+            labelsPruned++;
+            return;
+          }
+
+          const isDomDest = nondominated[to].some(c => dominatesExact(c, newCosts));
+          if (isDomDest) {
+            labelsPruned++;
+            return;
+          }
+
+          labelsGenerated++;
+          queue.push({ node: to, costs: newCosts, path: [...lbl.path, idx] });
+        });
+      }
+
+      const runtimeMs = performance.now() - t0;
+      const memoryEstimate = (maxQueueSize + settledLabelsCount) * 200;
+
+      return {
+        name: "Multiobjective Dijkstra (Martins)",
+        runtime_ms: runtimeMs,
+        labels_generated: labelsGenerated,
+        labels_pruned: labelsPruned,
+        max_queue_size: maxQueueSize,
+        memory_estimate: memoryEstimate,
+        solutions: paretoSolutions
+      };
+    }
+
+    // Exact Algorithm 2: NAMOA*
+    function computeHeuristics(nodes, edges, targetNode, k) {
+      const revAdj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach((e) => {
+        revAdj[e.to].push({ from: e.from, costs: e.costs });
+      });
+
+      const h = Array.from({ length: nodes.length }, () => Array(k).fill(Infinity));
+
+      for (let i = 0; i < k; i++) {
+        const dist = Array(nodes.length).fill(Infinity);
+        dist[targetNode] = 0;
+
+        const pq = [targetNode];
+        const visited = Array(nodes.length).fill(false);
+
+        while (pq.length > 0) {
+          pq.sort((a, b) => dist[a] - dist[b]);
+          const u = pq.shift();
+
+          if (visited[u]) continue;
+          visited[u] = true;
+
+          revAdj[u].forEach(({ from, costs }) => {
+            const c = costs[i];
+            if (dist[from] > dist[u] + c) {
+              dist[from] = dist[u] + c;
+              pq.push(from);
+            }
+          });
+        }
+
+        for (let u = 0; u < nodes.length; u++) {
+          h[u][i] = dist[u];
+        }
+      }
+
+      return h;
+    }
+
+    function runNAMOAStar(nodes, edges, sourceNode, targetNode, k, h) {
+      const t0 = performance.now();
+
+      const adj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach((e, idx) => {
+        adj[e.from].push({ to: e.to, costs: e.costs.slice(0, k), idx });
+      });
+
+      let labelsGenerated = 0;
+      let labelsPruned = 0;
+      let maxQueueSize = 0;
+      let settledLabelsCount = 0;
+
+      const G_cl = Array.from({ length: nodes.length }, () => []);
+      const G_op = Array.from({ length: nodes.length }, () => []);
+
+      const dominatesExact = (a, b) => a.every((v, i) => v <= b[i]);
+
+      const startF = h[sourceNode].map(val => val);
+      const queue = [{
+        node: sourceNode,
+        g: Array(k).fill(0),
+        f: startF,
+        path: []
+      }];
+      labelsGenerated++;
+      G_op[sourceNode].push(Array(k).fill(0));
+
+      const paretoSolutions = [];
+
+      while (queue.length > 0) {
+        if (queue.length > maxQueueSize) {
+          maxQueueSize = queue.length;
+        }
+
+        queue.sort((a, b) => {
+          for (let i = 0; i < k; i++) {
+            if (a.f[i] !== b.f[i]) return a.f[i] - b.f[i];
+          }
+          return 0;
+        });
+
+        const lbl = queue.shift();
+
+        const opIndex = G_op[lbl.node].findIndex(gVec => gVec.every((val, idx) => val === lbl.g[idx]));
+        if (opIndex !== -1) {
+          G_op[lbl.node].splice(opIndex, 1);
+        }
+
+        if (G_cl[lbl.node].some(c => dominatesExact(c, lbl.g))) {
+          labelsPruned++;
+          continue;
+        }
+
+        if (paretoSolutions.some(sol => dominatesExact(sol.costs, lbl.g))) {
+          labelsPruned++;
+          continue;
+        }
+
+        G_cl[lbl.node].push(lbl.g);
+        settledLabelsCount++;
+
+        if (lbl.node === targetNode) {
+          const isDomTarget = paretoSolutions.some(sol => dominatesExact(sol.costs, lbl.g));
+          if (!isDomTarget) {
+            for (let i = paretoSolutions.length - 1; i >= 0; i--) {
+              if (dominatesExact(lbl.g, paretoSolutions[i].costs)) {
+                paretoSolutions.splice(i, 1);
+              }
+            }
+            paretoSolutions.push({ path: lbl.path, costs: lbl.g });
+          }
+          continue;
+        }
+
+        adj[lbl.node].forEach(({ to, costs, idx }) => {
+          const newG = lbl.g.map((c, i) => c + costs[i]);
+          const newF = newG.map((gVal, i) => gVal + h[to][i]);
+
+          if (newF.some(fVal => fVal === Infinity)) {
+            labelsPruned++;
+            return;
+          }
+
+          const isDomTarget = paretoSolutions.some(sol => dominatesExact(sol.costs, newG));
+          if (isDomTarget) {
+            labelsPruned++;
+            return;
+          }
+
+          const isDomCl = G_cl[to].some(c => dominatesExact(c, newG));
+          if (isDomCl) {
+            labelsPruned++;
+            return;
+          }
+
+          const isDomOp = G_op[to].some(c => dominatesExact(c, newG));
+          if (isDomOp) {
+            labelsPruned++;
+            return;
+          }
+
+          for (let i = G_op[to].length - 1; i >= 0; i--) {
+            if (dominatesExact(newG, G_op[to][i])) {
+              const domG = G_op[to][i];
+              G_op[to].splice(i, 1);
+              const qIdx = queue.findIndex(q => q.node === to && q.g.every((val, idx) => val === domG[idx]));
+              if (qIdx !== -1) {
+                queue.splice(qIdx, 1);
+                labelsPruned++;
+              }
+            }
+          }
+
+          G_op[to].push(newG);
+          labelsGenerated++;
+          queue.push({
+            node: to,
+            g: newG,
+            f: newF,
+            path: [...lbl.path, idx]
+          });
+        });
+      }
+
+      const runtimeMs = performance.now() - t0;
+      const memoryEstimate = (maxQueueSize + settledLabelsCount) * 200;
+
+      return {
+        name: "NAMOA*",
+        runtime_ms: runtimeMs,
+        labels_generated: labelsGenerated,
+        labels_pruned: labelsPruned,
+        max_queue_size: maxQueueSize,
+        memory_estimate: memoryEstimate,
+        solutions: paretoSolutions
+      };
+    }
+
+    // Adaptive ε-Vector FPTAS Benchmark
+    function runAdaptiveFPTASBenchmark(nodes, edges, sourceNode, targetNode, k, epsTotal) {
+      const t0 = performance.now();
+      const epsVector = computeAdaptiveEpsilonVector(edges, k, epsTotal);
+
+      const adj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach((e, idx) => adj[e.from].push({ to: e.to, costs: e.costs.slice(0, k), idx }));
+
+      const bucket = (v, ep) => ep === 0 ? v : Math.floor(Math.log(v + 1) / Math.log(1 + ep));
+      const dominatesRounded = (a, b) =>
+        a.every((v, i) => bucket(v, epsVector[i]) <= bucket(b[i], epsVector[i]));
+
+      let queue = [{ node: sourceNode, costs: Array(k).fill(0), path: [] }];
+      const settled = Array.from({ length: nodes.length }, () => []);
+      settled[sourceNode].push(Array(k).fill(0));
+
+      let labelsGenerated = 1;
+      let labelsPruned = 0;
+      let maxQueueSize = 1;
+      let settledLabelsCount = 1;
+      const paretoPathEdges = [];
+
+      for (let iter = 0; queue.length > 0 && iter < 5000; iter++) {
+        if (queue.length > maxQueueSize) {
+          maxQueueSize = queue.length;
+        }
+
+        let bestI = 0;
+        queue.forEach((l, i) => { if (l.costs[0] < queue[bestI].costs[0]) bestI = i; });
+        const lbl = queue.splice(bestI, 1)[0];
+
+        if (lbl.node === targetNode) {
+          paretoPathEdges.push(lbl.path);
+          continue;
+        }
+
+        adj[lbl.node].forEach(({ to, costs, idx }) => {
+          const newCosts = lbl.costs.map((c, i) => c + costs[i]);
+          if (!settled[to].some(s => dominatesRounded(s, newCosts))) {
+            const oldLen = settled[to].length;
+            settled[to] = settled[to].filter(s => !dominatesRounded(newCosts, s));
+            labelsPruned += (oldLen - settled[to].length);
+
+            settled[to].push(newCosts);
+            settledLabelsCount++;
+            labelsGenerated++;
+            queue.push({ node: to, costs: newCosts, path: [...lbl.path, idx] });
+          } else {
+            labelsPruned++;
+          }
+        });
+      }
+
+      const uniq = paretoPathEdges.filter((p, i, arr) =>
+        arr.findIndex(u => u.join() === p.join()) === i
+      );
+
+      const paretoSolutions = uniq.map(path => {
+        const totalCosts = Array(k).fill(0);
+        path.forEach(ei => {
+          edges[ei].costs.slice(0, k).forEach((c, i) => totalCosts[i] += c);
+        });
+        return { path, costs: totalCosts };
+      });
+
+      const runtimeMs = performance.now() - t0;
+      const memoryEstimate = (maxQueueSize + settledLabelsCount) * 200;
+
+      return {
+        name: "Adaptive ε-Vector FPTAS",
+        runtime_ms: runtimeMs,
+        labels_generated: labelsGenerated,
+        labels_pruned: labelsPruned,
+        max_queue_size: maxQueueSize,
+        memory_estimate: memoryEstimate,
+        solutions: paretoSolutions
+      };
+    }
+
+    // Baseline FPTAS: Fixed ε-Grid FPTAS
+    function runFixedFPTASBenchmark(nodes, edges, sourceNode, targetNode, k, epsTotal) {
+      const t0 = performance.now();
+
+      const adj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach((e, idx) => adj[e.from].push({ to: e.to, costs: e.costs.slice(0, k), idx }));
+
+      const bucket = (v, ep) => ep === 0 ? v : Math.floor(Math.log(v + 1) / Math.log(1 + ep));
+      const dominatesRounded = (a, b) =>
+        a.every((v, i) => bucket(v, epsTotal) <= bucket(b[i], epsTotal));
+
+      let queue = [{ node: sourceNode, costs: Array(k).fill(0), path: [] }];
+      const settled = Array.from({ length: nodes.length }, () => []);
+      settled[sourceNode].push(Array(k).fill(0));
+
+      let labelsGenerated = 1;
+      let labelsPruned = 0;
+      let maxQueueSize = 1;
+      let settledLabelsCount = 1;
+      const paretoPathEdges = [];
+
+      for (let iter = 0; queue.length > 0 && iter < 5000; iter++) {
+        if (queue.length > maxQueueSize) {
+          maxQueueSize = queue.length;
+        }
+
+        let bestI = 0;
+        queue.forEach((l, i) => { if (l.costs[0] < queue[bestI].costs[0]) bestI = i; });
+        const lbl = queue.splice(bestI, 1)[0];
+
+        if (lbl.node === targetNode) {
+          paretoPathEdges.push(lbl.path);
+          continue;
+        }
+
+        adj[lbl.node].forEach(({ to, costs, idx }) => {
+          const newCosts = lbl.costs.map((c, i) => c + costs[i]);
+          if (!settled[to].some(s => dominatesRounded(s, newCosts))) {
+            const oldLen = settled[to].length;
+            settled[to] = settled[to].filter(s => !dominatesRounded(newCosts, s));
+            labelsPruned += (oldLen - settled[to].length);
+
+            settled[to].push(newCosts);
+            settledLabelsCount++;
+            labelsGenerated++;
+            queue.push({ node: to, costs: newCosts, path: [...lbl.path, idx] });
+          } else {
+            labelsPruned++;
+          }
+        });
+      }
+
+      const uniq = paretoPathEdges.filter((p, i, arr) =>
+        arr.findIndex(u => u.join() === p.join()) === i
+      );
+
+      const paretoSolutions = uniq.map(path => {
+        const totalCosts = Array(k).fill(0);
+        path.forEach(ei => {
+          edges[ei].costs.slice(0, k).forEach((c, i) => totalCosts[i] += c);
+        });
+        return { path, costs: totalCosts };
+      });
+
+      const runtimeMs = performance.now() - t0;
+      const memoryEstimate = (maxQueueSize + settledLabelsCount) * 200;
+
+      return {
+        name: "Fixed ε-Grid FPTAS",
+        runtime_ms: runtimeMs,
+        labels_generated: labelsGenerated,
+        labels_pruned: labelsPruned,
+        max_queue_size: maxQueueSize,
+        memory_estimate: memoryEstimate,
+        solutions: paretoSolutions
+      };
+    }
+
+    // Heuristic Baseline: Weighted-Sum Scalarization
+    function runSingleObjectiveDijkstra(nodes, edges, sourceNode, targetNode, k, weights) {
+      const adj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach((e, idx) => {
+        adj[e.from].push({ to: e.to, costs: e.costs.slice(0, k), idx });
+      });
+
+      const dist = Array(nodes.length).fill(Infinity);
+      const parentEdge = Array(nodes.length).fill(null);
+      const visited = Array(nodes.length).fill(false);
+
+      dist[sourceNode] = 0;
+      const pq = [sourceNode];
+      let labelsVisited = 0;
+
+      while (pq.length > 0) {
+        pq.sort((a, b) => dist[a] - dist[b]);
+        const u = pq.shift();
+
+        if (visited[u]) continue;
+        visited[u] = true;
+
+        if (u === targetNode) break;
+
+        adj[u].forEach(({ to: v, costs, idx }) => {
+          let scalarCost = 0;
+          for (let i = 0; i < k; i++) {
+            scalarCost += weights[i] * costs[i];
+          }
+
+          if (dist[v] > dist[u] + scalarCost) {
+            dist[v] = dist[u] + scalarCost;
+            parentEdge[v] = idx;
+            pq.push(v);
+            labelsVisited++;
+          }
+        });
+      }
+
+      if (dist[targetNode] === Infinity) return null;
+
+      const path = [];
+      let curr = targetNode;
+      while (curr !== sourceNode) {
+        const eIdx = parentEdge[curr];
+        if (eIdx === null) break;
+        path.push(eIdx);
+        curr = edges[eIdx].from;
+      }
+      path.reverse();
+
+      const totalCosts = Array(k).fill(0);
+      path.forEach(ei => {
+        edges[ei].costs.slice(0, k).forEach((c, i) => totalCosts[i] += c);
+      });
+
+      return { path, costs: totalCosts, labels_visited: labelsVisited };
+    }
+
+    function runWeightedSumBenchmark(nodes, edges, sourceNode, targetNode, k) {
+      const t0 = performance.now();
+      const weightVectors = [];
+
+      for (let i = 0; i < k; i++) {
+        const w = Array(k).fill(0);
+        w[i] = 1.0;
+        weightVectors.push(w);
+      }
+
+      for (let r = 0; r < 20; r++) {
+        const w = Array(k).fill(0).map(() => Math.random());
+        const sum = w.reduce((a, b) => a + b, 0);
+        const normalized = sum === 0 ? Array(k).fill(1 / k) : w.map(val => val / sum);
+        weightVectors.push(normalized);
+      }
+
+      const solutions = [];
+      let totalLabelsGenerated = 0;
+
+      weightVectors.forEach(w => {
+        const res = runSingleObjectiveDijkstra(nodes, edges, sourceNode, targetNode, k, w);
+        if (res) {
+          totalLabelsGenerated += res.labels_visited;
+          if (!solutions.some(sol => sol.path.join() === res.path.join())) {
+            solutions.push({ path: res.path, costs: res.costs });
+          }
+        }
+      });
+
+      const runtimeMs = performance.now() - t0;
+      const memoryEstimate = nodes.length * 32;
+
+      return {
+        name: "Weighted-Sum Scalarization",
+        runtime_ms: runtimeMs,
+        labels_generated: totalLabelsGenerated,
+        labels_pruned: 0,
+        max_queue_size: nodes.length,
+        memory_estimate: memoryEstimate,
+        solutions: solutions
+      };
+    }
+
+    // Exact Recursive Slicing Hypervolume Indicator Calculator
+    function computeHypervolume(points, referencePoint) {
+      const k = referencePoint.length;
+      const validPoints = points.filter(p => p.every((val, idx) => val < referencePoint[idx]));
+      if (validPoints.length === 0) return 0;
+      return calculateHVRecursive(validPoints, referencePoint, k);
+    }
+
+    function calculateHVRecursive(points, ref, k) {
+      if (points.length === 0) return 0;
+      if (k === 1) {
+        const minVal = Math.min(...points.map(p => p[0]));
+        return Math.max(0, ref[0] - minVal);
+      }
+
+      const coords = points.map(p => p[k - 1]);
+      const uniqueCoords = Array.from(new Set(coords)).sort((a, b) => a - b);
+
+      let hv = 0;
+      for (let i = 0; i < uniqueCoords.length; i++) {
+        const currentZ = uniqueCoords[i];
+        const nextZ = (i + 1 < uniqueCoords.length) ? uniqueCoords[i + 1] : ref[k - 1];
+        const height = nextZ - currentZ;
+
+        if (height <= 0) continue;
+
+        const activePoints = points.filter(p => p[k - 1] <= currentZ);
+        if (activePoints.length > 0) {
+          const projected = activePoints.map(p => p.slice(0, k - 1));
+          const subHV = calculateHVRecursive(projected, ref.slice(0, k - 1), k - 1);
+          hv += subHV * height;
+        }
+      }
+
+      return hv;
+    }
+
+    // MAIN BENCHMARK RUNNER
+    function runBenchmark() {
+      if (sourceNode === null || targetNode === null) {
+        log('Set source (◎) and target (◉) first.', 'warn'); return;
+      }
+      if (nodes.length < 2) { log('Need at least 2 nodes.', 'warn'); return; }
+
+      const btn = document.getElementById('btn-run-benchmark');
+      btn.textContent = "Recalculating...";
+      btn.style.borderColor = "var(--border)";
+      btn.style.color = "var(--text-dim)";
+      btn.disabled = true;
+
+      document.getElementById('benchmark-download-opts').style.display = 'none';
+
+      setTimeout(() => {
+        try {
+          log('Initiating MOSP benchmarking suite...', 'info');
+
+          const k = parseInt(document.getElementById('k-val').textContent);
+          const epsTotal = parseFloat(document.getElementById('eps-val').textContent);
+
+          edges.forEach(e => ensureEdgeCosts(e));
+
+          log('Running Multiobjective Dijkstra (Martins)...', 'info');
+          const martinsRes = runMartinsExact(nodes, edges, sourceNode, targetNode, k);
+          log(`Martins exact front size: ${martinsRes.solutions.length} paths in ${martinsRes.runtime_ms.toFixed(1)}ms.`, 'ok');
+
+          log('Running NAMOA*...', 'info');
+          const h = computeHeuristics(nodes, edges, targetNode, k);
+          const namoaRes = runNAMOAStar(nodes, edges, sourceNode, targetNode, k, h);
+          log(`NAMOA* completed in ${namoaRes.runtime_ms.toFixed(1)}ms.`, 'ok');
+
+          log('Running Adaptive ε-Vector FPTAS...', 'info');
+          const adaptiveRes = runAdaptiveFPTASBenchmark(nodes, edges, sourceNode, targetNode, k, epsTotal);
+          log(`Adaptive FPTAS completed in ${adaptiveRes.runtime_ms.toFixed(1)}ms.`, 'ok');
+
+          log('Running Fixed ε-Grid FPTAS...', 'info');
+          const fixedRes = runFixedFPTASBenchmark(nodes, edges, sourceNode, targetNode, k, epsTotal);
+          log(`Fixed FPTAS completed in ${fixedRes.runtime_ms.toFixed(1)}ms.`, 'ok');
+
+          log('Running Weighted-Sum Heuristic...', 'info');
+          const wsRes = runWeightedSumBenchmark(nodes, edges, sourceNode, targetNode, k);
+          log(`Weighted Sum completed in ${wsRes.runtime_ms.toFixed(1)}ms.`, 'ok');
+
+          const exactSolutions = martinsRes.solutions;
+
+          let refPoint = Array(k).fill(0);
+          if (exactSolutions.length > 0) {
+            const nadir = Array(k).fill(-Infinity);
+            exactSolutions.forEach(sol => {
+              sol.costs.forEach((c, idx) => {
+                nadir[idx] = Math.max(nadir[idx], c);
+              });
+            });
+            refPoint = nadir.map(val => Math.max(val, 1) * 1.1 + 1);
+          } else {
+            refPoint = Array(k).fill(100);
+          }
+
+          const trueHV = computeHypervolume(exactSolutions.map(s => s.costs), refPoint);
+
+          const results = [martinsRes, namoaRes, adaptiveRes, fixedRes, wsRes];
+
+          results.forEach(alg => {
+            const algCosts = alg.solutions.map(s => s.costs);
+            alg.solutions_count = alg.solutions.length;
+
+            if (exactSolutions.length === 0) {
+              alg.recall = 0;
+              alg.precision = 0;
+              alg.coverage = 0;
+              alg.hypervolume = 0;
+              alg.avg_relative_error = 0;
+              alg.max_relative_error = 0;
+              return;
+            }
+
+            let matchedExactCount = 0;
+            exactSolutions.forEach(exact => {
+              const match = algCosts.some(c => c.every((val, idx) => val === exact.costs[idx]));
+              if (match) matchedExactCount++;
+            });
+            alg.recall = matchedExactCount / exactSolutions.length;
+
+            let matchedAlgCount = 0;
+            algCosts.forEach(algC => {
+              const match = exactSolutions.some(exact => exact.costs.every((val, idx) => val === algC[idx]));
+              if (match) matchedAlgCount++;
+            });
+            alg.precision = alg.solutions.length > 0 ? (matchedAlgCount / alg.solutions.length) : 0;
+
+            const dominatesExact = (a, b) => a.every((v, i) => v <= b[i]);
+            let coveredCount = 0;
+            exactSolutions.forEach(exact => {
+              const covered = algCosts.some(c => dominatesExact(c, exact.costs));
+              if (covered) coveredCount++;
+            });
+            alg.coverage = coveredCount / exactSolutions.length;
+
+            alg.hypervolume = computeHypervolume(algCosts, refPoint);
+
+            let totalError = 0;
+            let maxError = 0;
+            exactSolutions.forEach(exact => {
+              let minMaxRel = Infinity;
+              algCosts.forEach(algC => {
+                let maxRelForPair = 0;
+                for (let i = 0; i < k; i++) {
+                  const denominator = Math.max(exact.costs[i], 1);
+                  const rel = Math.abs(algC[i] - exact.costs[i]) / denominator;
+                  if (rel > maxRelForPair) maxRelForPair = rel;
+                }
+                if (maxRelForPair < minMaxRel) {
+                  minMaxRel = maxRelForPair;
+                }
+              });
+              if (minMaxRel === Infinity) minMaxRel = 0;
+              totalError += minMaxRel;
+              if (minMaxRel > maxError) maxError = minMaxRel;
+            });
+            alg.avg_relative_error = totalError / exactSolutions.length;
+            alg.max_relative_error = maxError;
+          });
+
+          const jsonOutput = {
+            graph: {
+              nodes: nodes.length,
+              edges: edges.length,
+              objectives: k
+            },
+            algorithms: results.map(alg => {
+              const paths = alg.solutions.map(sol => {
+                const nodeSeq = sol.path.length === 0
+                  ? [sourceNode]
+                  : sol.path.map((ei, pi) => pi === 0 ? [edges[ei].from, edges[ei].to] : [edges[ei].to]).flat();
+                const nodeLabels = nodeSeq.map(ni => nodes[ni]?.label ?? '?').join(' -> ');
+                return {
+                  node_sequence: nodeLabels,
+                  cost_vector: sol.costs
+                };
+              });
+
+              return {
+                name: alg.name,
+                runtime_ms: parseFloat(alg.runtime_ms.toFixed(3)),
+                labels_generated: alg.labels_generated,
+                labels_pruned: alg.labels_pruned,
+                max_queue_size: alg.max_queue_size,
+                memory_estimate: alg.memory_estimate,
+                solutions_count: alg.solutions_count,
+                accuracy: {
+                  pareto_recall: parseFloat((alg.recall * 100).toFixed(2)) + "%",
+                  pareto_precision: parseFloat((alg.precision * 100).toFixed(2)) + "%",
+                  coverage_ratio: parseFloat((alg.coverage * 100).toFixed(2)) + "%",
+                  hypervolume: parseFloat(alg.hypervolume.toFixed(4)),
+                  hypervolume_percentage: trueHV > 0 ? parseFloat((alg.hypervolume / trueHV * 100).toFixed(2)) + "%" : "100%",
+                  average_relative_error: parseFloat((alg.avg_relative_error * 100).toFixed(2)) + "%",
+                  maximum_relative_error: parseFloat((alg.max_relative_error * 100).toFixed(2)) + "%"
+                },
+                solutions: paths
+              };
+            })
+          };
+
+          let txtOutput = `Multiobjective Shortest Path (MOSP) Benchmark Report
+==================================================
+Graph Configuration:
+- Nodes: ${nodes.length}
+- Edges: ${edges.length}
+- Objectives (k): ${k}
+- Source Node: Node ${nodes[sourceNode].label}
+- Target Node: Node ${nodes[targetNode].label}
+- Total Epsilon Budget (ε): ${epsTotal}
+- Hypervolume Reference Point: [${refPoint.map(v => v.toFixed(2)).join(', ')}]
+- True Hypervolume (Martins): ${trueHV.toFixed(4)}
+
+==================================================
+Algorithm Comparison:
+`;
+
+          jsonOutput.algorithms.forEach(alg => {
+            txtOutput += `
+--------------------------------------------------
+${alg.name}
+--------------------------------------------------
+Performance Metrics:
+- Runtime (ms): ${alg.runtime_ms.toFixed(2)}
+- Labels Generated: ${alg.labels_generated}
+- Labels Pruned: ${alg.labels_pruned}
+- Max Queue Size: ${alg.max_queue_size}
+- Memory Estimate: ${alg.memory_estimate}
+
+Solution Quality Metrics:
+- Number of Solutions Found: ${alg.solutions_count}
+- Hypervolume Score: ${alg.accuracy.hypervolume} (${alg.accuracy.hypervolume_percentage})
+
+Accuracy Metrics (vs. Martins Ground Truth):
+- Pareto Recall: ${alg.accuracy.pareto_recall}
+- Pareto Precision: ${alg.accuracy.pareto_precision}
+- Coverage Ratio C(A, B): ${alg.accuracy.coverage_ratio}
+- Average Relative Error: ${alg.accuracy.average_relative_error}
+- Maximum Relative Error: ${alg.accuracy.maximum_relative_error}
+
+Solutions List:
+`;
+            alg.solutions.forEach((sol, sIdx) => {
+              txtOutput += `  Path ${sIdx + 1}:
+    Sequence: ${sol.node_sequence}
+    Cost: [${sol.cost_vector.join(', ')}]
+`;
+            });
+          });
+
+          lastBenchmarkJSON = jsonOutput;
+          lastBenchmarkTXT = txtOutput;
+
+          btn.textContent = "Recalculate Benchmark";
+          btn.style.borderColor = "rgba(127, 255, 107, 0.35)";
+          btn.style.color = "var(--accent3)";
+          btn.disabled = false;
+
+          document.getElementById('benchmark-download-opts').style.display = 'flex';
+          log('Benchmarking completed successfully! Select your download format below.', 'ok');
+        } catch (err) {
+          log('Benchmarking failed: ' + err.message, 'warn');
+          btn.textContent = "Compare Algorithms";
+          btn.style.borderColor = "rgba(127, 255, 107, 0.35)";
+          btn.style.color = "var(--accent3)";
+          btn.disabled = false;
+        }
+      }, 50);
+    }
+
+    function downloadBenchmark(format) {
+      if (!lastBenchmarkJSON || !lastBenchmarkTXT) {
+        log('No benchmark results to download. Run the comparison first.', 'warn');
+        return;
+      }
+
+      if (format === 'json') {
+        const content = JSON.stringify(lastBenchmarkJSON, null, 2);
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'benchmark-results.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log('Downloaded benchmark-results.json', 'ok');
+      } else if (format === 'txt') {
+        const blob = new Blob([lastBenchmarkTXT], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'benchmark-report.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log('Downloaded benchmark-report.txt', 'ok');
+      } else if (format === 'pdf') {
+        try {
+          if (!window.jspdf) {
+            throw new Error('jsPDF library not loaded. Please ensure you are online to load the library from CDN.');
+          }
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          doc.setFont("courier", "normal");
+          doc.setFontSize(8);
+
+          const wrappedLines = doc.splitTextToSize(lastBenchmarkTXT, 185);
+          let y = 12;
+          wrappedLines.forEach(line => {
+            if (y > 280) {
+              doc.addPage();
+              y = 12;
+            }
+            doc.text(line, 12, y);
+            y += 4;
+          });
+
+          doc.save("benchmark-report.pdf");
+          log('Downloaded benchmark-report.pdf', 'ok');
+        } catch (err) {
+          log('PDF Generation failed: ' + err.message, 'warn');
+          alert('Failed to generate PDF. Falling back to downloading TXT instead.');
+          downloadBenchmark('txt');
+        }
+      }
     }
 
     function loadPreset(n) {
