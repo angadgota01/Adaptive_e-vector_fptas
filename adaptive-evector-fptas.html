@@ -10,6 +10,7 @@
     href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap"
     rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
     :root {
       --bg: #050a0e;
@@ -1727,42 +1728,6 @@
       };
     }
 
-    // Exact Recursive Slicing Hypervolume Indicator Calculator
-    function computeHypervolume(points, referencePoint) {
-      const k = referencePoint.length;
-      const validPoints = points.filter(p => p.every((val, idx) => val < referencePoint[idx]));
-      if (validPoints.length === 0) return 0;
-      return calculateHVRecursive(validPoints, referencePoint, k);
-    }
-
-    function calculateHVRecursive(points, ref, k) {
-      if (points.length === 0) return 0;
-      if (k === 1) {
-        const minVal = Math.min(...points.map(p => p[0]));
-        return Math.max(0, ref[0] - minVal);
-      }
-
-      const coords = points.map(p => p[k - 1]);
-      const uniqueCoords = Array.from(new Set(coords)).sort((a, b) => a - b);
-
-      let hv = 0;
-      for (let i = 0; i < uniqueCoords.length; i++) {
-        const currentZ = uniqueCoords[i];
-        const nextZ = (i + 1 < uniqueCoords.length) ? uniqueCoords[i + 1] : ref[k - 1];
-        const height = nextZ - currentZ;
-
-        if (height <= 0) continue;
-
-        const activePoints = points.filter(p => p[k - 1] <= currentZ);
-        if (activePoints.length > 0) {
-          const projected = activePoints.map(p => p.slice(0, k - 1));
-          const subHV = calculateHVRecursive(projected, ref.slice(0, k - 1), k - 1);
-          hv += subHV * height;
-        }
-      }
-
-      return hv;
-    }
 
     // MAIN BENCHMARK RUNNER
     function runBenchmark() {
@@ -1811,21 +1776,6 @@
 
           const exactSolutions = martinsRes.solutions;
 
-          let refPoint = Array(k).fill(0);
-          if (exactSolutions.length > 0) {
-            const nadir = Array(k).fill(-Infinity);
-            exactSolutions.forEach(sol => {
-              sol.costs.forEach((c, idx) => {
-                nadir[idx] = Math.max(nadir[idx], c);
-              });
-            });
-            refPoint = nadir.map(val => Math.max(val, 1) * 1.1 + 1);
-          } else {
-            refPoint = Array(k).fill(100);
-          }
-
-          const trueHV = computeHypervolume(exactSolutions.map(s => s.costs), refPoint);
-
           const results = [martinsRes, namoaRes, adaptiveRes, fixedRes, wsRes];
 
           results.forEach(alg => {
@@ -1836,7 +1786,6 @@
               alg.recall = 0;
               alg.precision = 0;
               alg.coverage = 0;
-              alg.hypervolume = 0;
               alg.avg_relative_error = 0;
               alg.max_relative_error = 0;
               return;
@@ -1863,8 +1812,6 @@
               if (covered) coveredCount++;
             });
             alg.coverage = coveredCount / exactSolutions.length;
-
-            alg.hypervolume = computeHypervolume(algCosts, refPoint);
 
             let totalError = 0;
             let maxError = 0;
@@ -1919,8 +1866,6 @@
                   pareto_recall: parseFloat((alg.recall * 100).toFixed(2)) + "%",
                   pareto_precision: parseFloat((alg.precision * 100).toFixed(2)) + "%",
                   coverage_ratio: parseFloat((alg.coverage * 100).toFixed(2)) + "%",
-                  hypervolume: parseFloat(alg.hypervolume.toFixed(4)),
-                  hypervolume_percentage: trueHV > 0 ? parseFloat((alg.hypervolume / trueHV * 100).toFixed(2)) + "%" : "100%",
                   average_relative_error: parseFloat((alg.avg_relative_error * 100).toFixed(2)) + "%",
                   maximum_relative_error: parseFloat((alg.max_relative_error * 100).toFixed(2)) + "%"
                 },
@@ -1937,9 +1882,7 @@ Graph Configuration:
 - Objectives (k): ${k}
 - Source Node: Node ${nodes[sourceNode].label}
 - Target Node: Node ${nodes[targetNode].label}
-- Total Epsilon Budget (ε): ${epsTotal}
-- Hypervolume Reference Point: [${refPoint.map(v => v.toFixed(2)).join(', ')}]
-- True Hypervolume (Martins): ${trueHV.toFixed(4)}
+- Total Epsilon Budget (\u03b5): ${epsTotal}
 
 ==================================================
 Algorithm Comparison:
@@ -1959,7 +1902,6 @@ Performance Metrics:
 
 Solution Quality Metrics:
 - Number of Solutions Found: ${alg.solutions_count}
-- Hypervolume Score: ${alg.accuracy.hypervolume} (${alg.accuracy.hypervolume_percentage})
 
 Accuracy Metrics (vs. Martins Ground Truth):
 - Pareto Recall: ${alg.accuracy.pareto_recall}
@@ -2033,26 +1975,145 @@ Solutions List:
             throw new Error('jsPDF library not loaded. Please ensure you are online to load the library from CDN.');
           }
           const { jsPDF } = window.jspdf;
-          const doc = new jsPDF();
-          doc.setFont("courier", "normal");
-          doc.setFontSize(8);
+          // Landscape A4 for side-by-side table
+          const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+          const data = lastBenchmarkJSON;
+          const algs = data.algorithms;
 
-          const wrappedLines = doc.splitTextToSize(lastBenchmarkTXT, 185);
-          let y = 12;
-          wrappedLines.forEach(line => {
-            if (y > 280) {
-              doc.addPage();
-              y = 12;
-            }
-            doc.text(line, 12, y);
-            y += 4;
+          // ── Title block ──
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.setTextColor(15, 20, 28);
+          doc.text('MOSP Benchmark Report', 14, 16);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(80, 80, 80);
+          const g = data.graph;
+          doc.text(
+            `Graph: ${g.nodes} nodes   |   ${g.edges} edges   |   ${g.objectives} objectives   |   ` +
+            `Source: ${nodes[sourceNode]?.label ?? '?'}   |   Target: ${nodes[targetNode]?.label ?? '?'}   |   Epsilon = ${parseFloat(document.getElementById('eps-val').textContent).toFixed(2)}`,
+            14, 22
+          );
+
+          // ── Helper to abbreviate algorithm names for column headers ──
+          const shortName = name => {
+            if (name.includes('Martins')) return 'Martins MDA';
+            if (name.includes('NAMOA')) return 'NAMOA*';
+            if (name.includes('Adaptive')) return 'Adaptive e-FPTAS';
+            if (name.includes('Fixed')) return 'Fixed e-FPTAS';
+            if (name.includes('Weighted')) return 'Weighted Sum';
+            return name;
+          };
+
+          const colHeader = ['Metric', ...algs.map(a => shortName(a.name))];
+
+          // ── Performance rows ──
+          const perfRows = [
+            ['Runtime (ms)', ...algs.map(a => a.runtime_ms.toFixed(2))],
+            ['Labels Generated', ...algs.map(a => String(a.labels_generated))],
+            ['Labels Pruned', ...algs.map(a => String(a.labels_pruned))],
+            ['Max Queue Size', ...algs.map(a => String(a.max_queue_size))],
+            ['Memory Estimate', ...algs.map(a => String(a.memory_estimate))],
+            ['Solutions Found', ...algs.map(a => String(a.solutions_count))],
+          ];
+
+          // ── Accuracy rows ──
+          const accRows = [
+            ['Pareto Recall', ...algs.map(a => a.accuracy.pareto_recall)],
+            ['Pareto Precision', ...algs.map(a => a.accuracy.pareto_precision)],
+            ['Coverage Ratio C(A,B)', ...algs.map(a => a.accuracy.coverage_ratio)],
+            ['Avg Relative Error', ...algs.map(a => a.accuracy.average_relative_error)],
+            ['Max Relative Error', ...algs.map(a => a.accuracy.maximum_relative_error)],
+          ];
+
+          const numAlgs = algs.length;
+          const pageW = 297; // A4 landscape mm
+          const marginL = 14;
+          const tableW = pageW - marginL * 2;
+          const metricColW = 52;
+          const dataColW = (tableW - metricColW) / numAlgs;
+
+          const columnStyles = { 0: { cellWidth: metricColW, fontStyle: 'bold' } };
+          for (let i = 1; i <= numAlgs; i++) {
+            columnStyles[i] = { cellWidth: dataColW, halign: 'center' };
+          }
+
+          const tableBase = {
+            startY: 28,
+            margin: { left: marginL, right: marginL },
+            styles: { fontSize: 7.5, cellPadding: 2.2, lineColor: [200, 200, 200], lineWidth: 0.2 },
+            headStyles: { fillColor: [20, 30, 45], textColor: [220, 240, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+            alternateRowStyles: { fillColor: [245, 248, 252] },
+            columnStyles,
+          };
+
+          // ── Performance table ──
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(30, 30, 30);
+          doc.text('Performance Metrics', marginL, 26);
+
+          doc.autoTable({
+            ...tableBase,
+            head: [colHeader],
+            body: perfRows,
           });
 
-          doc.save("benchmark-report.pdf");
+          // ── Accuracy table ──
+          const afterPerf = doc.lastAutoTable.finalY + 8;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(30, 30, 30);
+          doc.text('Accuracy Metrics  (vs. Martins exact front)', marginL, afterPerf - 2);
+
+          doc.autoTable({
+            ...tableBase,
+            startY: afterPerf,
+            head: [colHeader],
+            body: accRows,
+          });
+
+          // ── Per-algorithm solution lists ──
+          let solY = doc.lastAutoTable.finalY + 10;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(30, 30, 30);
+          doc.text('Solution Lists', marginL, solY - 2);
+          solY += 2;
+
+          algs.forEach(alg => {
+            const solRows = alg.solutions.map((s, idx) => [
+              `Path ${idx + 1}`,
+              s.node_sequence,
+              `[${s.cost_vector.join(', ')}]`
+            ]);
+            if (solRows.length === 0) solRows.push(['-', 'No solutions found', '-']);
+
+            if (solY > 170) { doc.addPage(); solY = 14; }
+
+            doc.autoTable({
+              startY: solY,
+              margin: { left: marginL, right: marginL },
+              styles: { fontSize: 7, cellPadding: 1.8, lineColor: [210, 210, 210], lineWidth: 0.15 },
+              headStyles: { fillColor: [40, 55, 80], textColor: [200, 230, 255], fontStyle: 'bold', fontSize: 7.5 },
+              alternateRowStyles: { fillColor: [248, 250, 253] },
+              head: [[shortName(alg.name), 'Node Sequence', 'Cost Vector']],
+              body: solRows,
+              columnStyles: {
+                0: { cellWidth: 32, fontStyle: 'bold', halign: 'center' },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 40, halign: 'center' }
+              }
+            });
+            solY = doc.lastAutoTable.finalY + 6;
+          });
+
+          doc.save('benchmark-report.pdf');
           log('Downloaded benchmark-report.pdf', 'ok');
         } catch (err) {
           log('PDF Generation failed: ' + err.message, 'warn');
-          alert('Failed to generate PDF. Falling back to downloading TXT instead.');
+          alert('Failed to generate PDF: ' + err.message + '. Falling back to TXT.');
           downloadBenchmark('txt');
         }
       }
