@@ -90,6 +90,13 @@
       border-bottom: 1px solid var(--border);
       background: var(--surface2);
       flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .canvas-toolbar.secondary-row {
+      border-bottom: 1px solid var(--border);
+      border-top: 1px dashed var(--border);
+      background: rgba(17, 32, 48, 0.6);
     }
 
     .tb-btn {
@@ -143,10 +150,29 @@
       border-color: #ff4d4d;
     }
 
+    .tb-btn.io-btn {
+      color: var(--accent3);
+      border-color: rgba(127, 255, 107, 0.35);
+    }
+
+    .tb-btn.io-btn:hover {
+      background: rgba(127, 255, 107, 0.1);
+      border-color: var(--accent3);
+    }
+
     .tb-sep {
       width: 1px;
       background: var(--border);
       margin: 0 0.25rem;
+    }
+
+    .tb-tag {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-right: 0.25rem;
     }
 
     /* ─── CONTROLS PANEL ─── */
@@ -274,7 +300,8 @@
         style="font-family: var(--mono); font-size: 0.88rem; color: var(--text-dim); max-width: 680px; line-height: 1.85;">
         Add nodes, draw edges with dual costs, set source/target, then run
         the Adaptive ε-Vector FPTAS. Watch labels propagate and see the
-        approximate Pareto-front paths highlighted.
+        approximate Pareto-front paths highlighted. Graphs must be acyclic
+        with non-negative edge costs — both are enforced automatically.
       </p>
     </div>
 
@@ -291,8 +318,23 @@
             <button class="tb-btn" id="btn-delete" onclick="setMode('delete')">🗑 Delete</button>
             <div class="tb-sep"></div>
             <button class="tb-btn run" onclick="runFPTAS()">▶ Run FPTAS</button>
-            <button class="tb-btn" onclick="resetGraph()">↺ Reset</button>
-            <button class="tb-btn" onclick="loadPreset()">⤓ Preset</button>
+          </div>
+          <div class="canvas-toolbar secondary-row">
+            <span class="tb-tag">Graph</span>
+            <button class="tb-btn" onclick="resetGraph()" title="Clear the current graph">↺ Reset</button>
+            <button class="tb-btn" onclick="loadPreset(1)" title="8-node preset, 2 objectives">⤓ Preset 1
+              (Small)</button>
+            <button class="tb-btn" onclick="loadPreset(2)" title="9-node preset with wider layer widths">⤓ Preset 2
+              (Medium)</button>
+            <button class="tb-btn" onclick="loadPreset(3)" title="~18-node layered DAG">⤓ Preset 3 (Large)</button>
+            <div class="tb-sep"></div>
+            <span class="tb-tag">File</span>
+            <button class="tb-btn io-btn" onclick="exportGraphJSON()" title="Download the current graph as JSON">⬇
+              Export JSON</button>
+            <button class="tb-btn io-btn" onclick="triggerImport()" title="Load a graph from a JSON file">⬆ Import
+              JSON</button>
+            <input type="file" id="import-file-input" accept="application/json,.json" style="display:none"
+              onchange="importGraphJSON(event)">
           </div>
           <canvas id="graphCanvas" width="800" height="480"></canvas>
         </div>
@@ -358,7 +400,7 @@
           <div class="log-box" id="log-box">
             <div class="log-line">
               <span class="log-time">00:00</span>
-              <span class="log-info">Ready. Build a graph or load a preset.</span>
+              <span class="log-info">Ready. Build a graph, load a preset, or import JSON.</span>
             </div>
           </div>
         </div>
@@ -423,6 +465,47 @@
         ];
       }
       return e.costs;
+    }
+
+    // ─── CYCLE / NEGATIVE-COST GUARDS ───────────────────────────────────────────
+    // Checks whether adding a directed edge (from -> to) would close a cycle
+    // in the CURRENT in-memory edge list (used live, while drawing edges).
+    function wouldCreateCycle(from, to) {
+      if (from === to) return true; // self-loop counts as a cycle
+      const adj = Array.from({ length: nodes.length }, () => []);
+      edges.forEach(e => adj[e.from].push(e.to));
+      // Cycle would be created if 'to' can already reach 'from'
+      const visited = new Set();
+      const stack = [to];
+      while (stack.length) {
+        const u = stack.pop();
+        if (u === from) return true;
+        if (visited.has(u)) continue;
+        visited.add(u);
+        adj[u].forEach(v => { if (!visited.has(v)) stack.push(v); });
+      }
+      return false;
+    }
+
+    // General-purpose cycle detector over an arbitrary edge list (used for
+    // validating imported graphs before they're loaded into state).
+    function hasCycle(edgeList, nNodes) {
+      const adj = Array.from({ length: nNodes }, () => []);
+      edgeList.forEach(e => adj[e.from].push(e.to));
+      const state = Array(nNodes).fill(0); // 0=unvisited, 1=visiting, 2=done
+      function dfs(u) {
+        state[u] = 1;
+        for (const v of adj[u]) {
+          if (state[v] === 1) return true;
+          if (state[v] === 0 && dfs(v)) return true;
+        }
+        state[u] = 2;
+        return false;
+      }
+      for (let i = 0; i < nNodes; i++) {
+        if (state[i] === 0 && dfs(i)) return true;
+      }
+      return false;
     }
 
     // ─── DRAW ────────────────────────────────────────────────────────────────────
@@ -559,10 +642,18 @@
             edgeSrc = hit;
             log(`Edge source: Node ${nodes[hit].label}. Click target.`, 'info');
           } else if (edgeSrc !== hit) {
-            const c1 = Math.floor(Math.random() * 9) + 1;
-            const c2 = Math.floor(Math.random() * 9) + 1;
-            edges.push({ from: edgeSrc, to: hit, c1, c2 });
-            log(`Edge ${nodes[edgeSrc].label}→${nodes[hit].label} (${c1},${c2}) added`, 'ok');
+            if (wouldCreateCycle(edgeSrc, hit)) {
+              log(`Edge ${nodes[edgeSrc].label}→${nodes[hit].label} rejected: would create a cycle. Graph must stay acyclic.`, 'warn');
+              edgeSrc = null;
+            } else {
+              const c1 = Math.floor(Math.random() * 9) + 1;
+              const c2 = Math.floor(Math.random() * 9) + 1;
+              edges.push({ from: edgeSrc, to: hit, c1, c2 });
+              log(`Edge ${nodes[edgeSrc].label}→${nodes[hit].label} (${c1},${c2}) added`, 'ok');
+              edgeSrc = null;
+            }
+          } else {
+            log('Self-loops are not allowed.', 'warn');
             edgeSrc = null;
           }
         }
@@ -576,7 +667,7 @@
           const edge = edges[eHit];
           const currentCosts = ensureEdgeCosts(edge);
           const promptStr = prompt(
-            `Enter new cost values for edge ${nodes[edge.from].label}→${nodes[edge.to].label} as comma-separated integers:`,
+            `Enter new cost values for edge ${nodes[edge.from].label}→${nodes[edge.to].label} as comma-separated non-negative integers:`,
             currentCosts.join(',')
           );
           if (promptStr !== null && promptStr.trim() !== '') {
@@ -589,7 +680,7 @@
               const k = parseInt(document.getElementById('k-val').textContent);
               log(`Edge ${nodes[edge.from].label}→${nodes[edge.to].label} costs updated to [${edge.costs.slice(0, k).join(',')}]`, 'ok');
             } else {
-              log('Invalid input. Costs must be non-negative integers.', 'warn');
+              log('Invalid input rejected: costs must be non-negative integers (negative costs break the FPTAS rounding scheme).', 'warn');
             }
           }
         }
@@ -645,6 +736,130 @@
     function updateStats() {
       document.getElementById('stat-nodes').textContent = nodes.length;
       document.getElementById('stat-edges').textContent = edges.length;
+    }
+
+    // ─── JSON IMPORT / EXPORT ────────────────────────────────────────────────────
+    function exportGraphJSON() {
+      if (nodes.length === 0) {
+        log('Nothing to export — graph is empty.', 'warn');
+        return;
+      }
+      const data = {
+        version: 1,
+        k: parseInt(document.getElementById('k-val').textContent),
+        epsTotal: parseFloat(document.getElementById('eps-val').textContent),
+        sourceNode,
+        targetNode,
+        nodes: nodes.map(n => ({ x: n.x, y: n.y, label: n.label })),
+        edges: edges.map(e => ({ from: e.from, to: e.to, costs: ensureEdgeCosts(e) })),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mosp-graph.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      log(`Graph exported as JSON (${nodes.length} nodes, ${edges.length} edges).`, 'ok');
+    }
+
+    function triggerImport() {
+      document.getElementById('import-file-input').click();
+    }
+
+    function importGraphJSON(evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          validateAndLoadGraph(data);
+        } catch (err) {
+          log('Import failed: file is not valid JSON — ' + err.message, 'warn');
+          alert('That file is not valid JSON.');
+        }
+      };
+      reader.readAsText(file);
+      evt.target.value = ''; // allow re-selecting the same file later
+    }
+
+    function validateAndLoadGraph(data) {
+      if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+        log('Import rejected: JSON is missing "nodes" or "edges" arrays.', 'warn');
+        alert('Invalid graph JSON: expected "nodes" and "edges" arrays.');
+        return;
+      }
+      const nNodes = data.nodes.length;
+      for (const n of data.nodes) {
+        if (typeof n.x !== 'number' || typeof n.y !== 'number') {
+          log('Import rejected: a node is missing valid x/y coordinates.', 'warn');
+          alert('Invalid graph JSON: every node needs numeric x and y.');
+          return;
+        }
+      }
+
+      // Negative-cost guard + index-range guard
+      for (const e of data.edges) {
+        if (!Number.isInteger(e.from) || !Number.isInteger(e.to) ||
+          e.from < 0 || e.to < 0 || e.from >= nNodes || e.to >= nNodes) {
+          log('Import rejected: an edge references a node index that does not exist.', 'warn');
+          alert('Invalid graph JSON: an edge references a non-existent node.');
+          return;
+        }
+        if (e.from === e.to) {
+          log('Import rejected: self-loop edge found (not allowed).', 'warn');
+          alert('Invalid graph JSON: self-loop edges are not allowed.');
+          return;
+        }
+        const costs = Array.isArray(e.costs) ? e.costs : [e.c1, e.c2];
+        if (!Array.isArray(costs) || costs.length === 0 || costs.some(c => typeof c !== 'number' || isNaN(c) || c < 0)) {
+          log('Import rejected: negative or invalid edge cost detected. Costs must be non-negative.', 'warn');
+          alert('Invalid graph JSON: edge costs must be non-negative numbers.');
+          return;
+        }
+      }
+
+      // Cycle guard
+      if (hasCycle(data.edges, nNodes)) {
+        log('Import rejected: the graph contains a cycle. Only acyclic graphs are supported.', 'warn');
+        alert('Invalid graph JSON: the graph contains a cycle. This algorithm requires an acyclic graph.');
+        return;
+      }
+
+      // All checks passed — load it
+      nodes = data.nodes.map((n, i) => ({
+        x: n.x, y: n.y, label: n.label || String.fromCharCode(65 + (i % 26))
+      }));
+      edges = data.edges.map(e => {
+        const costs = Array.isArray(e.costs) ? e.costs.slice(0, 4) : [e.c1 ?? 1, e.c2 ?? 1, 1, 1];
+        while (costs.length < 4) costs.push(1);
+        return { from: e.from, to: e.to, costs, c1: costs[0], c2: costs[1] };
+      });
+      sourceNode = Number.isInteger(data.sourceNode) && data.sourceNode < nNodes ? data.sourceNode : null;
+      targetNode = Number.isInteger(data.targetNode) && data.targetNode < nNodes ? data.targetNode : null;
+
+      if (typeof data.k === 'number') {
+        const kSlider = document.getElementById('k-slider');
+        kSlider.value = Math.min(4, Math.max(2, Math.round(data.k)));
+        document.getElementById('k-val').textContent = kSlider.value;
+      }
+      if (typeof data.epsTotal === 'number') {
+        const epsSlider = document.getElementById('eps-slider');
+        epsSlider.value = Math.round(Math.min(0.5, Math.max(0.01, data.epsTotal)) * 100);
+        document.getElementById('eps-val').textContent = (epsSlider.value / 100).toFixed(2);
+      }
+
+      document.getElementById('routes-box').style.display = 'none';
+      document.getElementById('routes-list').innerHTML = '';
+      ['stat-labels', 'stat-paths', 'stat-time', 'eps-vector-val'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+      });
+
+      log(`Graph imported: ${nodes.length} nodes, ${edges.length} edges. Passed acyclic + non-negative-cost checks.`, 'ok');
+      drawGraph();
     }
 
     // ─── FPTAS ───────────────────────────────────────────────────────────────────
@@ -785,7 +1000,6 @@
       log(`Simulated runtime: ${simTime}ms`, 'info');
 
       drawGraph(uniq, bestPath);
-      animatePaths(uniq, bestPath);
 
       // Populate routes box
       const routesBox = document.getElementById('routes-box');
@@ -820,19 +1034,7 @@
       routesBox.style.display = 'block';
     }
 
-    function animatePaths(pathSets, bestPath = null) {
-      if (animFrame) cancelAnimationFrame(animFrame);
-      let frame = 0;
-      function step() {
-        if (frame > 60) { drawGraph(pathSets, bestPath); return; }
-        drawGraph(frame % 10 < 5 ? pathSets : [], bestPath);
-        frame++;
-        animFrame = requestAnimationFrame(step);
-      }
-      step();
-    }
-
-    // ─── RESET / PRESET ──────────────────────────────────────────────────────────
+    // ─── RESET / PRESETS ─────────────────────────────────────────────────────────
     function resetGraph() {
       nodes = []; edges = []; sourceNode = null; targetNode = null; edgeSrc = null;
       ['stat-labels', 'stat-paths', 'stat-time', 'eps-vector-val'].forEach(id => {
@@ -845,8 +1047,8 @@
       drawGraph();
     }
 
-    function loadPreset() {
-      resetGraph();
+    // Preset 1 — small hand-laid-out 8-node graph (original demo graph)
+    function loadPresetSmall() {
       const W = canvas.width, H = canvas.height;
       nodes = [
         { x: W * 0.10, y: H * 0.50, label: 'S' },
@@ -867,12 +1069,95 @@
         { from: 5, to: 7, c1: 1, c2: 6 }, { from: 6, to: 7, c1: 4, c2: 1 },
       ];
       sourceNode = 0; targetNode = 7;
-      log('Preset loaded: 8-node 2-objective graph.', 'ok');
+      log('Preset 1 loaded: 8-node, 2-objective acyclic graph.', 'ok');
+    }
+
+    // Preset 2 — medium 9-node, 3-layer-wide graph with more cross links
+    function loadPresetMedium() {
+      const W = canvas.width, H = canvas.height;
+      nodes = [
+        { x: W * 0.06, y: H * 0.50, label: 'S' },
+        { x: W * 0.27, y: H * 0.18, label: 'A' },
+        { x: W * 0.27, y: H * 0.50, label: 'B' },
+        { x: W * 0.27, y: H * 0.82, label: 'C' },
+        { x: W * 0.53, y: H * 0.12, label: 'D' },
+        { x: W * 0.53, y: H * 0.50, label: 'E' },
+        { x: W * 0.53, y: H * 0.88, label: 'F' },
+        { x: W * 0.77, y: H * 0.50, label: 'G' },
+        { x: W * 0.94, y: H * 0.50, label: 'T' },
+      ];
+      edges = [
+        { from: 0, to: 1, c1: 3, c2: 6 }, { from: 0, to: 2, c1: 5, c2: 2 }, { from: 0, to: 3, c1: 8, c2: 1 },
+        { from: 1, to: 4, c1: 2, c2: 4 }, { from: 1, to: 5, c1: 6, c2: 3 },
+        { from: 2, to: 4, c1: 4, c2: 5 }, { from: 2, to: 5, c1: 1, c2: 7 }, { from: 2, to: 6, c1: 7, c2: 2 },
+        { from: 3, to: 5, c1: 3, c2: 6 }, { from: 3, to: 6, c1: 2, c2: 8 },
+        { from: 4, to: 7, c1: 5, c2: 3 }, { from: 5, to: 7, c1: 4, c2: 4 }, { from: 6, to: 7, c1: 3, c2: 5 },
+        { from: 7, to: 8, c1: 2, c2: 6 },
+      ];
+      sourceNode = 0; targetNode = 8;
+      log('Preset 2 loaded: 9-node, 3-layer-wide graph with cross links.', 'ok');
+    }
+
+    // Preset 3 — larger ~18-node layered DAG, generated programmatically so
+    // it stays guaranteed-acyclic (edges only ever go layer i -> layer i+1).
+    function loadPresetLarge() {
+      const W = canvas.width, H = canvas.height;
+      const layerSizes = [1, 4, 4, 4, 4, 1]; // 18 nodes total, S...T
+      const layers = []; // arrays of node indices per layer
+      let idx = 0;
+
+      layerSizes.forEach((count, li) => {
+        const layerNodes = [];
+        const x = W * (0.06 + li * (0.88 / (layerSizes.length - 1)));
+        for (let j = 0; j < count; j++) {
+          const y = count === 1 ? H * 0.5 : H * (0.12 + j * (0.76 / (count - 1)));
+          let label;
+          if (li === 0) label = 'S';
+          else if (li === layerSizes.length - 1) label = 'T';
+          else label = String.fromCharCode(66 + (idx - 1)); // B, C, D... skips S/T range
+          nodes.push({ x, y, label });
+          layerNodes.push(idx);
+          idx++;
+        }
+        layers.push(layerNodes);
+      });
+
+      edges = [];
+      for (let li = 0; li < layers.length - 1; li++) {
+        const from = layers[li], to = layers[li + 1];
+        // Guarantee every node in the next layer has >=1 incoming edge
+        to.forEach(t => {
+          const src = from[Math.floor(Math.random() * from.length)];
+          edges.push({ from: src, to: t, c1: Math.floor(Math.random() * 9) + 1, c2: Math.floor(Math.random() * 9) + 1 });
+        });
+        // Guarantee every node in this layer has >=1 outgoing edge, plus add
+        // a few extra cross links for a denser, more interesting Pareto front
+        from.forEach(f => {
+          const extra = 1 + Math.floor(Math.random() * 2); // 1-2 extra links
+          for (let e = 0; e < extra; e++) {
+            const t = to[Math.floor(Math.random() * to.length)];
+            if (!edges.some(ed => ed.from === f && ed.to === t)) {
+              edges.push({ from: f, to: t, c1: Math.floor(Math.random() * 9) + 1, c2: Math.floor(Math.random() * 9) + 1 });
+            }
+          }
+        });
+      }
+
+      sourceNode = layers[0][0];
+      targetNode = layers[layers.length - 1][0];
+      log(`Preset 3 loaded: ${nodes.length}-node layered DAG (${edges.length} edges), randomly generated per load.`, 'ok');
+    }
+
+    function loadPreset(n) {
+      resetGraph();
+      if (n === 2) loadPresetMedium();
+      else if (n === 3) loadPresetLarge();
+      else loadPresetSmall();
       log('Click ▶ Run FPTAS to execute.', 'info');
       drawGraph();
     }
 
-    loadPreset();
+    loadPreset(1);
   </script>
 </body>
 
